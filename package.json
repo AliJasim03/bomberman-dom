@@ -1,28 +1,26 @@
 {
-  "name": "mini-framework",
+  "name": "bomberman-dom",
   "version": "1.0.0",
-  "description": "A lightweight JavaScript framework with DOM abstraction, routing, state management, and event handling",
-  "main": "src/index.js",
+  "description": "Multiplayer Bomberman game built with DOM manipulation",
+  "main": "server/index.js",
   "scripts": {
-    "start": "parcel examples/todoMVC/index.html",
-    "build": "parcel build src/index.js --out-file mini-framework.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AliJasim03/mini-framework.git"
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
   },
   "keywords": [
-    "framework",
-    "javascript",
-    "todomvc"
+    "bomberman",
+    "game",
+    "multiplayer",
+    "websockets",
+    "dom"
   ],
-  "author": "Ali Jasim",
+  "author": "Your Name",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/AliJasim03/mini-framework/issues"
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
   },
-  "homepage": "https://github.com/AliJasim03/mini-framework#readme",
   "devDependencies": {
-    "parcel-bundler": "^1.12.5"
+    "nodemon": "^3.0.1"
   }
 }
