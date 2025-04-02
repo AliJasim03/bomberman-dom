@@ -861,3 +861,5 @@ class GameManager {
         this.checkGameStartConditions();
     }
 }
+
+module.exports = GameManager;
