@@ -1,0 +1,28 @@
+{
+  "name": "mini-framework",
+  "version": "1.0.0",
+  "description": "A lightweight JavaScript framework with DOM abstraction, routing, state management, and event handling",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "parcel examples/todoMVC/index.html",
+    "build": "parcel build src/index.js --out-file mini-framework.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AliJasim03/mini-framework.git"
+  },
+  "keywords": [
+    "framework",
+    "javascript",
+    "todomvc"
+  ],
+  "author": "Ali Jasim",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AliJasim03/mini-framework/issues"
+  },
+  "homepage": "https://github.com/AliJasim03/mini-framework#readme",
+  "devDependencies": {
+    "parcel-bundler": "^1.12.5"
+  }
+}
