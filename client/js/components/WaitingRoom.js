@@ -10,7 +10,8 @@ import Chat from './Chat.js';
  * @returns {Object} Virtual DOM element
  */
 function WaitingRoom() {
-    const { player, waitingRoom } = getState();
+    const state = getState();
+    const { player, waitingRoom } = state;
     const { players, countdown, playersCount } = waitingRoom;
 
     // Format countdown timer
@@ -20,14 +21,15 @@ function WaitingRoom() {
             ? 'Waiting for more players...'
             : 'Waiting for at least one more player to join...';
 
-    // Get chat messages
-    const chatMessages = waitingRoom.chatMessages || [];
+    // Handle sending chat messages
+    const handleSendMessage = (e) => {
+        e.preventDefault();
 
-    /**
-     * Handle sending chat messages
-     * @param {string} message - Chat message text
-     */
-    const handleSendMessage = (message) => {
+        const chatInput = document.getElementById('chat-input');
+        const message = chatInput.value.trim();
+
+        if (!message) return;
+
         // Send chat message to server
         if (window.socket && window.socket.readyState === WebSocket.OPEN) {
             window.socket.send(JSON.stringify({
@@ -35,6 +37,9 @@ function WaitingRoom() {
                 message
             }));
         }
+
+        // Clear input
+        chatInput.value = '';
     };
 
     return createElement('div', { class: 'waiting-container' }, [
@@ -76,11 +81,51 @@ function WaitingRoom() {
 
             // Chat section
             createElement('div', { class: 'chat-section' }, [
-                createElement(Chat, {
-                    messages: chatMessages,
-                    onSendMessage: handleSendMessage,
-                    currentUserId: player.id
-                })
+                createElement('div', { class: 'chat' }, [
+                    // Chat header
+                    createElement('div', { class: 'chat-header' }, [
+                        createElement('h3', {}, ['Chat'])
+                    ]),
+
+                    // Chat messages
+                    createElement('div', {
+                            class: 'chat-messages',
+                            id: 'chat-messages'
+                        },
+                        (waitingRoom.chatMessages || []).map(msg => createElement('div', {
+                            class: `chat-message ${msg.senderId === player.id ? 'own' : ''}`,
+                            key: `${msg.senderId}-${msg.timestamp}`
+                        }, [
+                            createElement('div', { class: 'message-header' }, [
+                                createElement('span', { class: 'message-sender' }, [
+                                    msg.senderId === player.id ? 'You' : msg.sender
+                                ]),
+                                createElement('span', { class: 'message-time' }, [
+                                    new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                ])
+                            ]),
+                            createElement('div', { class: 'message-content' }, [msg.message])
+                        ]))
+                    ),
+
+                    // Chat input form
+                    createElement('form', {
+                        class: 'chat-form',
+                        onSubmit: handleSendMessage
+                    }, [
+                        createElement('input', {
+                            id: 'chat-input',
+                            type: 'text',
+                            class: 'chat-input',
+                            placeholder: 'Type your message...',
+                            maxlength: 100
+                        }),
+                        createElement('button', {
+                            type: 'submit',
+                            class: 'chat-send-button'
+                        }, ['Send'])
+                    ])
+                ])
             ])
         ]),
 

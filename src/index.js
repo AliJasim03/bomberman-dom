@@ -19,7 +19,10 @@ export function setState(newState) {
 
     // Compare and only trigger updates if state actually changed
     if (JSON.stringify(_prevState) !== JSON.stringify(_state)) {
-        _listeners.forEach(listener => listener(_state, _prevState));
+        // Ensure _listeners exists and is an array before calling forEach
+        if (_listeners && Array.isArray(_listeners)) {
+            _listeners.forEach(listener => listener(_state, _prevState));
+        }
     }
 }
 
@@ -127,11 +130,14 @@ export function render(vNode) {
     });
 
     // Render and append children
-    vNode.children.forEach(child => {
-        if (child !== null && child !== undefined) {
-            element.appendChild(render(child));
-        }
-    });
+    // Add a check to ensure vNode.children exists
+    if (vNode.children) {
+        vNode.children.forEach(child => {
+            if (child !== null && child !== undefined) {
+                element.appendChild(render(child));
+            }
+        });
+    }
 
     return element;
 }
@@ -151,6 +157,7 @@ export function mount(element, container) {
  * @param {Function} component - Root component function
  * @param {string} rootId - ID of the root DOM element
  */
+// Create HTTP server
 export function createApp(component, rootId = 'root') {
     const rootElement = document.getElementById(rootId);
 
@@ -161,11 +168,12 @@ export function createApp(component, rootId = 'root') {
 
     // Function to render the app
     const renderApp = () => {
-        console.time('render');
+        const timestamp = Date.now();
+        console.time(`render-${timestamp}`);
         const vNode = component(getState());
         const realNode = render(vNode);
         mount(realNode, rootElement);
-        console.timeEnd('render');
+        console.timeEnd(`render-${timestamp}`);
     };
 
     // Subscribe to state changes to trigger re-renders

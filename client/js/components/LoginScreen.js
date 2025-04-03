@@ -8,40 +8,26 @@ import { createElement, getState, setState } from '../../../src/index.js';
  * Login Screen Component
  * @returns {Object} Virtual DOM element
  */
+// Login Screen Component
 function LoginScreen() {
-    const { player } = getState();
-
-    /**
-     * Handle login form submission
-     * @param {Event} e - Form submission event
-     */
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        // Get form input value
         const nicknameInput = document.getElementById('nickname-input');
         const nickname = nicknameInput.value.trim();
 
-        // Validate nickname
         if (!nickname) {
             alert('Please enter a nickname');
             return;
         }
 
-        if (nickname.length < 3 || nickname.length > 15) {
-            alert('Nickname must be between 3 and 15 characters');
-            return;
-        }
-
-        // Update player state
         setState({
             player: {
-                ...player,
+                ...getState().player,
                 nickname
             }
         });
 
-        // Send join message to server
         if (window.socket && window.socket.readyState === WebSocket.OPEN) {
             window.socket.send(JSON.stringify({
                 type: 'JOIN',
@@ -67,10 +53,7 @@ function LoginScreen() {
                         type: 'text',
                         class: 'nickname-input',
                         placeholder: 'Your nickname',
-                        autofocus: true,
-                        required: true,
-                        minlength: 3,
-                        maxlength: 15
+                        autofocus: true
                     })
                 ]),
 
@@ -81,13 +64,7 @@ function LoginScreen() {
             ]),
 
             createElement('div', { class: 'instructions' }, [
-                createElement('h2', {}, ['How to Play:']),
-                createElement('ul', {}, [
-                    createElement('li', {}, ['Use arrow keys or WASD to move']),
-                    createElement('li', {}, ['Press SPACE to place bombs']),
-                    createElement('li', {}, ['Destroy blocks to find power-ups']),
-                    createElement('li', {}, ['Be the last player standing to win!'])
-                ])
+                createElement('p', {}, ['Use arrow keys to move, spacebar to place bombs'])
             ])
         ])
     ]);

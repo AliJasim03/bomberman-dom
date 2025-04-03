@@ -12,6 +12,9 @@ const GameManager = require('./gameManager');
 const app = express();
 app.use(express.static(path.join(__dirname, '../client')));
 
+//serve mini framework
+app.use('/src', express.static(path.join(__dirname, '../src')));
+
 // Create HTTP server
 const server = http.createServer(app);
 
