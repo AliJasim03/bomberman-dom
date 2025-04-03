@@ -8,8 +8,10 @@ import { createElement, getState, setState } from '../../../src/index.js';
  * Login Screen Component
  * @returns {Object} Virtual DOM element
  */
-// Login Screen Component
 function LoginScreen() {
+    const { player } = getState();
+    const storedNickname = player.nickname || '';
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -27,6 +29,11 @@ function LoginScreen() {
                 nickname
             }
         });
+
+        // Save nickname to localStorage
+        localStorage.setItem('bomberman-session', JSON.stringify({
+            nickname: nickname
+        }));
 
         if (window.socket && window.socket.readyState === WebSocket.OPEN) {
             window.socket.send(JSON.stringify({
@@ -53,6 +60,7 @@ function LoginScreen() {
                         type: 'text',
                         class: 'nickname-input',
                         placeholder: 'Your nickname',
+                        value: storedNickname, // Use the stored nickname
                         autofocus: true
                     })
                 ]),

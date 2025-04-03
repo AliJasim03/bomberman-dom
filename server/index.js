@@ -50,17 +50,24 @@ wss.on('connection', (ws) => {
 
                 case 'CHAT':
                     // Handle chat message
-                    gameManager.broadcastChat(ws.id, data.message);
+                    console.log(`Received chat message from ${ws.id}: ${data.message}`);
+
+                    // Important: Use the player ID stored on the WebSocket, not the socket ID
+                    if (ws.playerId) {
+                        gameManager.broadcastChat(ws.playerId, data.message);
+                    } else {
+                        console.error(`WebSocket ${ws.id} tried to send chat but has no playerId`);
+                    }
                     break;
 
                 case 'PLAYER_MOVE':
                     // Handle player movement
-                    gameManager.updatePlayerPosition(ws.id, data.direction);
+                    gameManager.updatePlayerPosition(ws.playerId || ws.id, data.direction);
                     break;
 
                 case 'PLACE_BOMB':
                     // Handle bomb placement
-                    gameManager.placeBomb(ws.id);
+                    gameManager.placeBomb(ws.playerId || ws.id);
                     break;
 
                 default:

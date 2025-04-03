@@ -129,7 +129,7 @@ function handleMessage(data) {
             break;
 
         case 'CHAT_MESSAGE':
-            handleChatMessage(data);
+            handleChatMessage(data);(data);
             break;
 
         case 'GAME_OVER':
@@ -239,6 +239,8 @@ function handleGameCountdown(data) {
     const { seconds } = data;
     const state = getState();
 
+    console.log(`Countdown started: ${seconds} seconds`);
+
     // Update waiting room state
     setState({
         waitingRoom: {
@@ -246,6 +248,12 @@ function handleGameCountdown(data) {
             countdown: seconds
         }
     });
+
+    // Also display a notification
+    if (document.getElementById('countdown-notification')) {
+        document.getElementById('countdown-notification').textContent =
+            `Game starting in ${seconds} seconds!`;
+    }
 }
 
 /**
@@ -256,15 +264,18 @@ function handleCountdownUpdate(data) {
     const { seconds } = data;
     const state = getState();
 
-    // Update waiting room state
-    setState({
-        waitingRoom: {
-            ...state.waitingRoom,
-            countdown: seconds
-        }
-    });
-}
+    // Update state without re-render
+    if (state.waitingRoom) {
+        state.waitingRoom.countdown = seconds;
+    }
 
+    // Update DOM directly
+    const countdownEl = document.getElementById('countdown-notification');
+    if (countdownEl) {
+        countdownEl.textContent = `Game starting in: ${seconds}s`;
+        countdownEl.className = 'countdown active';
+    }
+}
 /**
  * Handle timer canceled
  */
@@ -287,12 +298,16 @@ function handleTimerCanceled() {
  */
 function handleGameStarted(data) {
     const { gameId, map, players, yourId } = data;
+    const state = getState();
+
+    // Transfer chat messages from waiting room to game
+    const waitingRoomChat = state.waitingRoom.chatMessages || [];
 
     // Update game state
     setState({
         screen: 'game',
         game: {
-            ...getState().game,
+            ...state.game,
             id: gameId,
             map,
             players,
@@ -300,7 +315,7 @@ function handleGameStarted(data) {
             bombs: [],
             powerUps: [],
             explosions: [],
-            chatMessages: []
+            chatMessages: waitingRoomChat // Carry over chat messages
         }
     });
 }
@@ -509,38 +524,6 @@ function handlePlayerDisconnected(data) {
 }
 
 /**
- * Handle chat message
- * @param {Object} data - Message data
- */
-function handleChatMessage(data) {
-    const { senderId, sender, message, timestamp } = data;
-    const state = getState();
-
-    // Add message to chat
-    if (state.screen === 'waiting') {
-        setState({
-            waitingRoom: {
-                ...state.waitingRoom,
-                chatMessages: [
-                    ...(state.waitingRoom.chatMessages || []),
-                    { senderId, sender, message, timestamp }
-                ].slice(-50) // Keep only last 50 messages
-            }
-        });
-    } else if (state.screen === 'game') {
-        setState({
-            game: {
-                ...state.game,
-                chatMessages: [
-                    ...state.game.chatMessages,
-                    { senderId, sender, message, timestamp }
-                ].slice(-50) // Keep only last 50 messages
-            }
-        });
-    }
-}
-
-/**
  * Handle game over
  * @param {Object} data - Message data
  */
@@ -575,4 +558,63 @@ function handleReturnToWaitingRoom(data) {
             playersCount
         }
     });
+}
+
+/**
+ * Handle chat message directly without full re-render
+ * @param {Object} data - Message data
+ */
+function handleChatMessage(data) {
+    const { senderId, sender, message, timestamp } = data;
+    const state = getState();
+    const currentUserId = state.player.id;
+
+    // Create chat message element
+    const messageEl = document.createElement('div');
+    messageEl.className = `chat-message ${senderId === currentUserId ? 'own' : ''}`;
+
+    // Message header
+    const headerEl = document.createElement('div');
+    headerEl.className = 'message-header';
+
+    const senderEl = document.createElement('span');
+    senderEl.className = 'message-sender';
+    senderEl.textContent = senderId === currentUserId ? 'You' : sender;
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'message-time';
+    timeEl.textContent = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    headerEl.appendChild(senderEl);
+    headerEl.appendChild(timeEl);
+
+    // Message content
+    const contentEl = document.createElement('div');
+    contentEl.className = 'message-content';
+    contentEl.textContent = message;
+
+    // Assemble message
+    messageEl.appendChild(headerEl);
+    messageEl.appendChild(contentEl);
+
+    // Add to appropriate chat container
+    let chatContainer;
+    if (state.screen === 'waiting') {
+        chatContainer = document.getElementById('chat-messages');
+
+        // Also update state (but don't trigger re-render)
+        const newMessages = [...(state.waitingRoom.chatMessages || []), data];
+        state.waitingRoom.chatMessages = newMessages.slice(-50);
+    } else if (state.screen === 'game') {
+        chatContainer = document.getElementById('game-chat-messages');
+
+        // Also update state (but don't trigger re-render)
+        const newMessages = [...(state.game.chatMessages || []), data];
+        state.game.chatMessages = newMessages.slice(-50);
+    }
+
+    if (chatContainer) {
+        chatContainer.appendChild(messageEl);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
 }

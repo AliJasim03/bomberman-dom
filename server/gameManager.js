@@ -18,22 +18,80 @@ class GameManager {
     }
 
     /**
-     * Add a new player to the waiting room
+     * Add a new player to the waiting room or reconnect
      * @param {WebSocket} ws - WebSocket connection
      * @param {string} nickname - Player nickname
      */
     addPlayer(ws, nickname) {
-        // Check if nickname is taken
-        if (this.playerManager.isNicknameTaken(nickname)) {
-            this.send(ws, {
-                type: 'ERROR',
-                message: 'Nickname already taken'
-            });
+        // Check for existing players with this nickname (reconnection)
+        const existingPlayers = this.playerManager.getAllPlayers()
+            .filter(p => p.nickname.toLowerCase() === nickname.toLowerCase());
+
+        if (existingPlayers.length > 0) {
+            // Reconnection case
+            const player = existingPlayers[0];
+
+            // Update the player's WebSocket and mark as online
+            player.ws = ws;
+            player.online = true;
+
+            // Store player ID on the WebSocket
+            ws.playerId = player.id;
+
+            console.log(`Player ${nickname} (${player.id}) reconnected, state: ${player.state}`);
+
+            // Reconnect based on player state
+            if (player.state === 'waiting') {
+                // Get waiting players
+                const waitingPlayers = this.playerManager.getWaitingPlayers();
+
+                // Send rejoin message to the player
+                this.send(ws, {
+                    type: 'JOIN_SUCCESS',
+                    id: player.id,
+                    playersCount: waitingPlayers.filter(p => p.online).length,
+                    players: waitingPlayers.map(p => ({
+                        id: p.id,
+                        nickname: p.nickname,
+                        online: p.online
+                    }))
+                });
+
+                // Notify other waiting players
+                this.broadcastToWaitingRoom({
+                    type: 'PLAYER_JOINED',
+                    player: { id: player.id, nickname: player.nickname },
+                    playersCount: waitingPlayers.filter(p => p.online).length
+                }, player.id);
+            }
+            else if (player.state === 'playing' && player.gameId) {
+                // Reconnect to game
+                const game = this.games.get(player.gameId);
+
+                if (game) {
+                    // Send game state to reconnected player
+                    this.send(ws, {
+                        type: 'GAME_STARTED',
+                        gameId: game.id,
+                        map: game.map,
+                        players: game.players,
+                        yourId: player.id
+                    });
+
+                    // Notify other players of reconnection
+                    this.broadcastToGame(game.id, {
+                        type: 'PLAYER_RECONNECTED',
+                        playerId: player.id
+                    }, player.id);
+                }
+            }
+
             return;
         }
 
-        // Add player to manager
+        // New player case - create a new player
         const player = this.playerManager.addPlayer(ws, nickname);
+        player.online = true;
 
         // Get waiting players
         const waitingPlayers = this.playerManager.getWaitingPlayers();
@@ -42,10 +100,11 @@ class GameManager {
         this.send(ws, {
             type: 'JOIN_SUCCESS',
             id: player.id,
-            playersCount: waitingPlayers.length,
+            playersCount: waitingPlayers.filter(p => p.online).length,
             players: waitingPlayers.map(p => ({
                 id: p.id,
-                nickname: p.nickname
+                nickname: p.nickname,
+                online: p.online
             }))
         });
 
@@ -53,12 +112,13 @@ class GameManager {
         this.broadcastToWaitingRoom({
             type: 'PLAYER_JOINED',
             player: { id: player.id, nickname: player.nickname },
-            playersCount: waitingPlayers.length
+            playersCount: waitingPlayers.filter(p => p.online).length
         }, player.id);
 
         // Check if we need to start a timer for the game
         this.checkGameStartConditions();
     }
+
 
     /**
      * Remove a player from the game
@@ -69,57 +129,38 @@ class GameManager {
 
         if (!player) return;
 
+        // Don't actually remove players when they disconnect, just mark them as offline
+        // This allows them to reconnect
+        player.online = false;
+        player.ws = null;
+
         // If player is in waiting room
         if (player.state === 'waiting') {
-            // Remove player
-            this.playerManager.removePlayer(playerId);
-
-            // Get updated waiting players
-            const waitingPlayers = this.playerManager.getWaitingPlayers();
-
             // Notify waiting room players
             this.broadcastToWaitingRoom({
                 type: 'PLAYER_LEFT',
                 playerId,
-                playersCount: waitingPlayers.length
+                playersCount: this.playerManager.getWaitingPlayers().filter(p => p.online).length
             });
-
-            // Check if we need to cancel the timer
-            if (waitingPlayers.length < 2 && this.waitingRoom.startTimer) {
-                clearInterval(this.waitingRoom.startTimer);
-                this.waitingRoom.startTimer = null;
-                this.waitingRoom.timerValue = 0;
-
-                this.broadcastToWaitingRoom({
-                    type: 'TIMER_CANCELED'
-                });
-            }
         }
         // If player is in a game
         else if (player.state === 'playing' && player.gameId) {
             const game = this.games.get(player.gameId);
 
             if (game) {
-                // Mark player as disconnected in the game
-                const gamePlayer = game.players.find(p => p.id === playerId);
-                if (gamePlayer) {
-                    gamePlayer.disconnected = true;
-                    gamePlayer.lives = 0;
+                // Notify other players in the game
+                this.broadcastToGame(game.id, {
+                    type: 'PLAYER_DISCONNECTED',
+                    playerId
+                }, playerId);
 
-                    // Notify other players in the game
-                    this.broadcastToGame(game.id, {
-                        type: 'PLAYER_DISCONNECTED',
-                        playerId
-                    });
-
-                    // Check if game is over
-                    this.checkGameOver(game.id);
-                }
+                // Check if game is over
+                this.checkGameOver(game.id);
             }
-
-            // Remove player
-            this.playerManager.removePlayer(playerId);
         }
+
+        // Don't actually remove the player, just leave them in disconnected state
+        // this.playerManager.removePlayer(playerId);  // Comment this out
     }
 
     /**
@@ -212,10 +253,10 @@ class GameManager {
 
         // Set up initial player positions at corners
         const startPositions = [
-            { x: 1, y: 1 },                   // Top-left
-            { x: map.width - 2, y: map.height - 2 }, // Bottom-right
-            { x: map.width - 2, y: 1 },              // Top-right
-            { x: 1, y: map.height - 2 }              // Bottom-left
+            {x: 1, y: 1},                   // Top-left
+            {x: map.width - 2, y: map.height - 2}, // Bottom-right
+            {x: map.width - 2, y: 1},              // Top-right
+            {x: 1, y: map.height - 2}              // Bottom-left
         ];
 
         // Create game object
@@ -333,17 +374,17 @@ class GameManager {
         const game = this.games.get(gameId);
         if (!game) return;
 
-        const { x, y, playerId, flameSize } = bomb;
+        const {x, y, playerId, flameSize} = bomb;
 
         // Calculate explosion cells (in four directions)
-        const explosionCells = [{ x, y }]; // Center of explosion
+        const explosionCells = [{x, y}]; // Center of explosion
 
         // Directions: up, right, down, left
         const directions = [
-            { dx: 0, dy: -1 }, // Up
-            { dx: 1, dy: 0 },  // Right
-            { dx: 0, dy: 1 },  // Down
-            { dx: -1, dy: 0 }  // Left
+            {dx: 0, dy: -1}, // Up
+            {dx: 1, dy: 0},  // Right
+            {dx: 0, dy: 1},  // Down
+            {dx: -1, dy: 0}  // Left
         ];
 
         directions.forEach(dir => {
@@ -357,7 +398,7 @@ class GameManager {
                 }
 
                 // Add this cell to explosion
-                explosionCells.push({ x: newX, y: newY });
+                explosionCells.push({x: newX, y: newY});
 
                 // Check if we hit a block
                 if (this.isBlock(game.map, newX, newY)) {
@@ -465,7 +506,7 @@ class GameManager {
         // Notify all players of the destroyed block
         this.broadcastToGame(gameId, {
             type: 'BLOCK_DESTROYED',
-            position: { x, y }
+            position: {x, y}
         });
     }
 
@@ -574,7 +615,7 @@ class GameManager {
         if (!gamePlayer || gamePlayer.lives <= 0) return;
 
         // Current position
-        let { x, y } = gamePlayer.position;
+        let {x, y} = gamePlayer.position;
 
         // Calculate new position based on direction
         let newX = x;
@@ -608,11 +649,11 @@ class GameManager {
         }
 
         // Update player position
-        gamePlayer.position = { x: newX, y: newY };
+        gamePlayer.position = {x: newX, y: newY};
 
         // Update position in player manager too
         this.playerManager.updatePlayerState(playerId, {
-            position: { x: newX, y: newY }
+            position: {x: newX, y: newY}
         });
 
         // Check for power-up collection
@@ -676,7 +717,7 @@ class GameManager {
         if (activeBombs >= gamePlayer.bombs) return;
 
         // Get player position
-        const { x, y } = gamePlayer.position;
+        const {x, y} = gamePlayer.position;
 
         // Check if there's already a bomb at this position
         if (game.bombs.some(b => b.x === x && b.y === y)) return;
@@ -702,36 +743,57 @@ class GameManager {
     }
 
     /**
-     * Broadcast a chat message to all players in a game
+     * Broadcast a chat message to all players in a game or waiting room
+     * @param {string} senderId - Sender player ID
+     * @param {string} message - Chat message
+     */
+    /**
+     * Broadcast a chat message to all players in a game or waiting room
      * @param {string} senderId - Sender player ID
      * @param {string} message - Chat message
      */
     broadcastChat(senderId, message) {
+        // Get the player first
         const player = this.playerManager.getPlayer(senderId);
-        if (!player) return;
+        if (!player) {
+            console.log(`Player ${senderId} not found for chat message`);
+            return;
+        }
+
+        // Create the message object
+        const chatMessage = {
+            type: 'CHAT_MESSAGE',
+            senderId,
+            sender: player.nickname,
+            message,
+            timestamp: Date.now()
+        };
+
+        console.log(`Broadcasting chat from ${player.nickname}: "${message}" (state: ${player.state})`);
 
         // If player is in waiting room
         if (player.state === 'waiting') {
-            this.broadcastToWaitingRoom({
-                type: 'CHAT_MESSAGE',
-                senderId,
-                sender: player.nickname,
-                message,
-                timestamp: Date.now()
+            // Get all waiting players
+            const waitingPlayers = this.playerManager.getWaitingPlayers();
+            console.log(`Sending to ${waitingPlayers.length} waiting players`);
+
+            // Send to all players in waiting room
+            waitingPlayers.forEach(waitingPlayer => {
+                this.playerManager.sendToPlayer(waitingPlayer.id, chatMessage);
             });
         }
         // If player is in a game
         else if (player.state === 'playing' && player.gameId) {
-            this.broadcastToGame(player.gameId, {
-                type: 'CHAT_MESSAGE',
-                senderId,
-                sender: player.nickname,
-                message,
-                timestamp: Date.now()
+            // Get all players in the game
+            const gamePlayers = this.playerManager.getGamePlayers(player.gameId);
+            console.log(`Sending to ${gamePlayers.length} game players`);
+
+            // Send to all players in the game
+            gamePlayers.forEach(gamePlayer => {
+                this.playerManager.sendToPlayer(gamePlayer.id, chatMessage);
             });
         }
     }
-
     /**
      * Broadcast current game state to all players in a game
      * @param {string} gameId - Game ID

@@ -3,16 +3,14 @@
  * Shows waiting players and countdown until game starts
  */
 import { createElement, getState } from '../../../src/index.js';
-import Chat from './Chat.js';
 
 /**
  * Waiting Room Component
  * @returns {Object} Virtual DOM element
  */
 function WaitingRoom() {
-    const state = getState();
-    const { player, waitingRoom } = state;
-    const { players, countdown, playersCount } = waitingRoom;
+    const { player, waitingRoom } = getState();
+    const { players, countdown, playersCount, chatMessages = [] } = waitingRoom;
 
     // Format countdown timer
     const countdownDisplay = countdown !== null
@@ -21,13 +19,18 @@ function WaitingRoom() {
             ? 'Waiting for more players...'
             : 'Waiting for at least one more player to join...';
 
-    // Handle sending chat messages
+    /**
+     * Handle sending chat messages
+     * @param {Event} e - Form submission event
+     */
     const handleSendMessage = (e) => {
         e.preventDefault();
 
+        // Get chat input
         const chatInput = document.getElementById('chat-input');
         const message = chatInput.value.trim();
 
+        // Don't send empty messages
         if (!message) return;
 
         // Send chat message to server
@@ -36,11 +39,21 @@ function WaitingRoom() {
                 type: 'CHAT',
                 message
             }));
+
+            console.log('Sending chat message:', message);
         }
 
         // Clear input
         chatInput.value = '';
     };
+
+    // Scroll chat to bottom after render
+    setTimeout(() => {
+        const chatMessages = document.getElementById('chat-messages');
+        if (chatMessages) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }, 0);
 
     return createElement('div', { class: 'waiting-container' }, [
         // Header section
@@ -73,9 +86,10 @@ function WaitingRoom() {
                     ]))
                 ),
 
-                // Countdown display
+                // Countdown display - with ID for direct updates
                 createElement('div', {
-                    class: `countdown ${countdown !== null ? 'active' : ''}`
+                    class: `countdown ${countdown !== null ? 'active' : ''}`,
+                    id: 'countdown-notification'
                 }, [countdownDisplay])
             ]),
 
@@ -92,7 +106,7 @@ function WaitingRoom() {
                             class: 'chat-messages',
                             id: 'chat-messages'
                         },
-                        (waitingRoom.chatMessages || []).map(msg => createElement('div', {
+                        chatMessages.map(msg => createElement('div', {
                             class: `chat-message ${msg.senderId === player.id ? 'own' : ''}`,
                             key: `${msg.senderId}-${msg.timestamp}`
                         }, [
