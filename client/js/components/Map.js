@@ -111,7 +111,7 @@ function Map(props) {
 
     // Create power-up elements
     const powerUpElements = powerUps.map(powerUp =>
-        createElement(PowerUp, {
+        PowerUp({
             key: `powerup-${powerUp.id}`,
             type: powerUp.type,
             x: powerUp.x,
@@ -122,7 +122,7 @@ function Map(props) {
 
     // Create player elements
     const playerElements = players.map(player =>
-        createElement(Player, {
+        Player({
             key: `player-${player.id}`,
             player,
             isCurrentPlayer: player.id === yourId,
@@ -168,10 +168,10 @@ function Map(props) {
         ...playerElements,
 
         // Audio elements
-        createSoundElement('/assets/audio/bomb_place.mp3'),
-        createSoundElement('/assets/audio/explosion.mp3'),
-        createSoundElement('/assets/audio/powerup.mp3'),
-        createSoundElement('/assets/audio/player_hit.mp3')
+        createSoundElement('/assets/audio/bomb_place.wav'),
+        createSoundElement('/assets/audio/explosion.wav'),
+        createSoundElement('/assets/audio/powerup.wav'),
+        createSoundElement('/assets/audio/player_hit.wav')
     ]);
 }
 

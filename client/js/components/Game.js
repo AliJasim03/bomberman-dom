@@ -291,7 +291,7 @@ function Game() {
                             width: '32px',
                             height: '32px',
                             borderRadius: '50%',
-                            backgroundImage: `url("/assets/images/players/player${parseInt(yourId.replace(/\D/g, '')) % 6 + 1}.png")`,
+                            backgroundImage: `url("/assets/images/players/player${parseInt(yourId?.replace(/\D/g, '') || '1') % 6 + 1}.png")`,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             border: '2px solid gold'
@@ -348,7 +348,7 @@ function Game() {
             // Game map container
             createElement('div', { class: 'game-map-container', style: mapContainerStyle }, [
                 // Render map component if map data is available
-                map ? createElement(Map, {
+                map ? Map({
                     map,
                     players,
                     bombs,
@@ -588,7 +588,7 @@ function Game() {
 
         // Background music
         createElement('audio', {
-            src: '/assets/audio/background.wav  ',
+            src: '/assets/audio/background.wav',
             id: 'background-music',
             loop: true,
             autoplay: true,
