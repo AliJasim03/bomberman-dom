@@ -13,32 +13,10 @@ import LoginScreen from './components/LoginScreen.js';
 import WaitingRoom from './components/WaitingRoom.js';
 import Game from './components/Game.js';
 
-try {
-    const savedSession = localStorage.getItem('bomberman-session');
-    if (savedSession) {
-        const sessionData = JSON.parse(savedSession);
-        // Only restore nickname - actual game state will come from server
-        if (sessionData.nickname) {
-            setState({
-                player: {
-                    ...getState().player,
-                    nickname: sessionData.nickname
-                }
-            });
-
-            console.log('Restored session with nickname:', sessionData.nickname);
-
-            // In this version, don't attempt to auto-rejoin
-            // We'll let the player manually click Join instead
-        }
-    }
-} catch (error) {
-    console.error('Error restoring session:', error);
-}
-
 // Initialize application state
 setState({
     screen: 'login',
+    reconnecting: false,
     player: {
         id: null,
         nickname: '',
@@ -67,8 +45,54 @@ setState({
     }
 });
 
+// Try to restore session from localStorage
+try {
+    const savedSession = localStorage.getItem('bomberman-session');
+    if (savedSession) {
+        const sessionData = JSON.parse(savedSession);
+
+        if (sessionData.nickname && sessionData.playerId) {
+            console.log('Found saved session:', sessionData);
+
+            // Update player state with saved data
+            setState({
+                reconnecting: true,
+                player: {
+                    ...getState().player,
+                    id: sessionData.playerId,
+                    nickname: sessionData.nickname
+                }
+            });
+
+            // We'll send the reconnection request after socket is initialized
+        }
+    }
+} catch (error) {
+    console.error('Error restoring session:', error);
+    localStorage.removeItem('bomberman-session');
+}
+
 // Initialize WebSocket connection
 initSocket();
+
+// Function to attempt reconnection
+export function attemptReconnect() {
+    const state = getState();
+    if (state.reconnecting && state.player.id && state.player.nickname) {
+        console.log('Attempting to reconnect with ID:', state.player.id);
+
+        if (window.socket && window.socket.readyState === WebSocket.OPEN) {
+            window.socket.send(JSON.stringify({
+                type: 'RECONNECT',
+                playerId: state.player.id,
+                nickname: state.player.nickname
+            }));
+        } else {
+            console.log('Socket not ready yet for reconnection');
+            // We'll try again when the socket is open (handled in socket.js)
+        }
+    }
+}
 
 // Root App Component
 function App(state) {
@@ -77,8 +101,6 @@ function App(state) {
         console.error('No state available in App component');
         return createElement('div', {}, ['Loading...']);
     }
-
-    console.log(`Current screen: ${state.screen}`);
 
     // Return different screens based on the current state
     switch (state.screen) {

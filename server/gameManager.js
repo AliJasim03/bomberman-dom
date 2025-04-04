@@ -922,6 +922,102 @@ class GameManager {
         // Check conditions to start game
         this.checkGameStartConditions();
     }
+    /**
+     * Reconnect a player
+     * @param {WebSocket} ws - WebSocket connection
+     * @param {string} playerId - Player ID
+     * @param {string} nickname - Player nickname
+     */
+    reconnectPlayer(ws, playerId, nickname) {
+        // First try to find the player by ID
+        let player = this.playerManager.getPlayer(playerId);
+
+        if (!player) {
+            // If not found by ID, try by nickname
+            const players = this.playerManager.getAllPlayers()
+                .filter(p => p.nickname.toLowerCase() === nickname.toLowerCase());
+
+            if (players.length > 0) {
+                player = players[0];
+            } else {
+                // Not found at all - create a new player
+                return this.addPlayer(ws, nickname);
+            }
+        }
+
+        // Update player's connection
+        player.ws = ws;
+        player.online = true;
+        ws.playerId = player.id;
+
+        console.log(`Player ${player.nickname} (${player.id}) reconnected, state: ${player.state}`);
+
+        // Handle based on player state
+        if (player.state === 'waiting') {
+            // Get waiting players
+            const waitingPlayers = this.playerManager.getWaitingPlayers();
+
+            // Send rejoin message to the player
+            this.send(ws, {
+                type: 'JOIN_SUCCESS',
+                id: player.id,
+                nickname: player.nickname,
+                playersCount: waitingPlayers.length,
+                players: waitingPlayers.map(p => ({
+                    id: p.id,
+                    nickname: p.nickname,
+                    online: p.online
+                }))
+            });
+
+            // Notify other waiting players
+            this.broadcastToWaitingRoom({
+                type: 'PLAYER_JOINED',
+                player: { id: player.id, nickname: player.nickname },
+                playersCount: waitingPlayers.length
+            }, player.id);
+        }
+        else if (player.state === 'playing' && player.gameId) {
+            // Get game
+            const game = this.games.get(player.gameId);
+
+            if (game) {
+                // Send current game state to player
+                this.send(ws, {
+                    type: 'GAME_STARTED',
+                    gameId: game.id,
+                    map: game.map,
+                    players: game.players,
+                    yourId: player.id
+                });
+
+                // Notify other players
+                this.broadcastToGame(game.id, {
+                    type: 'PLAYER_RECONNECTED',
+                    playerId: player.id
+                }, player.id);
+            } else {
+                // Game not found - reset player to waiting
+                player.state = 'waiting';
+                player.gameId = null;
+
+                // Send back to waiting room
+                this.send(ws, {
+                    type: 'JOIN_SUCCESS',
+                    id: player.id,
+                    nickname: player.nickname,
+                    playersCount: this.playerManager.getWaitingPlayers().length,
+                    players: this.playerManager.getWaitingPlayers().map(p => ({
+                        id: p.id,
+                        nickname: p.nickname,
+                        online: p.online
+                    }))
+                });
+            }
+        }
+    }
 }
+
+
 
 module.exports = GameManager;

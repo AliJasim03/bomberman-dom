@@ -48,9 +48,15 @@ wss.on('connection', (ws) => {
                     gameManager.addPlayer(ws, data.nickname);
                     break;
 
+                case 'RECONNECT':
+                    // Handle player reconnection
+                    console.log(`Reconnection attempt for player ${data.playerId} with nickname ${data.nickname}`);
+                    gameManager.reconnectPlayer(ws, data.playerId, data.nickname);
+                    break;
+
                 case 'CHAT':
                     // Handle chat message
-                    console.log(`Received chat message from ${ws.id}: ${data.message}`);
+                    console.log(`Received chat message from ${ws.playerId || ws.id}: ${data.message}`);
 
                     // Important: Use the player ID stored on the WebSocket, not the socket ID
                     if (ws.playerId) {
@@ -81,7 +87,13 @@ wss.on('connection', (ws) => {
     // Handle disconnection
     ws.on('close', () => {
         console.log('Client disconnected');
-        gameManager.removePlayer(ws.id);
+        if (ws.playerId) {
+            // If we have a player ID, use that
+            gameManager.removePlayer(ws.playerId);
+        } else {
+            // Otherwise use the socket ID
+            gameManager.removePlayer(ws.id);
+        }
     });
 });
 
@@ -89,7 +101,11 @@ wss.on('connection', (ws) => {
 const interval = setInterval(() => {
     wss.clients.forEach((ws) => {
         if (ws.isAlive === false) {
-            gameManager.removePlayer(ws.id);
+            if (ws.playerId) {
+                gameManager.removePlayer(ws.playerId);
+            } else {
+                gameManager.removePlayer(ws.id);
+            }
             return ws.terminate();
         }
 

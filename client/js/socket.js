@@ -3,6 +3,7 @@
  * Handles all communication with the server
  */
 import { getState, setState } from '../../src/index.js';
+import { attemptReconnect } from './app.js';
 
 /**
  * Initialize WebSocket connection
@@ -19,6 +20,13 @@ export function initSocket() {
     // Handle connection opening
     socket.addEventListener('open', () => {
         console.log('WebSocket connection established');
+
+        // Attempt to reconnect if we have session data
+        const state = getState();
+        if (state.reconnecting) {
+            console.log('Socket open, attempting reconnection');
+            attemptReconnect();
+        }
     });
 
     // Handle incoming messages
@@ -129,7 +137,7 @@ function handleMessage(data) {
             break;
 
         case 'CHAT_MESSAGE':
-            handleChatMessage(data);(data);
+            handleChatMessage(data);
             break;
 
         case 'GAME_OVER':
@@ -151,18 +159,27 @@ function handleMessage(data) {
  */
 function handleJoinSuccess(data) {
     const { id, playersCount, players } = data;
+    const state = getState();
+
+    // Save session to localStorage for reconnection
+    localStorage.setItem('bomberman-session', JSON.stringify({
+        playerId: id,
+        nickname: state.player.nickname
+    }));
 
     // Update player information
     setState({
+        reconnecting: false,  // No longer reconnecting
         screen: 'waiting',
         player: {
-            ...getState().player,
+            ...state.player,
             id
         },
         waitingRoom: {
             players,
             countdown: null,
-            playersCount
+            playersCount,
+            chatMessages: state.waitingRoom.chatMessages || []
         }
     });
 }
@@ -276,6 +293,7 @@ function handleCountdownUpdate(data) {
         countdownEl.className = 'countdown active';
     }
 }
+
 /**
  * Handle timer canceled
  */
@@ -299,6 +317,13 @@ function handleTimerCanceled() {
 function handleGameStarted(data) {
     const { gameId, map, players, yourId } = data;
     const state = getState();
+
+    // Update session to include game info
+    localStorage.setItem('bomberman-session', JSON.stringify({
+        playerId: yourId,
+        nickname: state.player.nickname,
+        gameId
+    }));
 
     // Transfer chat messages from waiting room to game
     const waitingRoomChat = state.waitingRoom.chatMessages || [];
@@ -334,7 +359,8 @@ function handleGameStateUpdate(data) {
             ...state.game,
             players: gameState.players,
             bombs: gameState.bombs,
-            powerUps: gameState.powerUps
+            powerUps: gameState.powerUps,
+            explosions: gameState.explosions || state.game.explosions
         }
     });
 }
@@ -385,12 +411,14 @@ function handleBombExploded(data) {
     // Remove explosion after animation completes (1 second)
     setTimeout(() => {
         const currentState = getState();
-        setState({
-            game: {
-                ...currentState.game,
-                explosions: currentState.game.explosions.filter(e => e.id !== bombId)
-            }
-        });
+        if (currentState.screen === 'game') {
+            setState({
+                game: {
+                    ...currentState.game,
+                    explosions: currentState.game.explosions.filter(e => e.id !== bombId)
+                }
+            });
+        }
     }, 1000);
 }
 
@@ -511,7 +539,7 @@ function handlePlayerDisconnected(data) {
     // Update player status
     const players = state.game.players.map(player =>
         player.id === playerId
-            ? { ...player, lives: 0, disconnected: true }
+            ? { ...player, disconnected: true }
             : player
     );
 
@@ -548,6 +576,13 @@ function handleGameOver(data) {
  */
 function handleReturnToWaitingRoom(data) {
     const { playersCount, players } = data;
+    const state = getState();
+
+    // Update session in localStorage
+    localStorage.setItem('bomberman-session', JSON.stringify({
+        playerId: state.player.id,
+        nickname: state.player.nickname
+    }));
 
     // Return to waiting room
     setState({
@@ -555,13 +590,14 @@ function handleReturnToWaitingRoom(data) {
         waitingRoom: {
             players,
             countdown: null,
-            playersCount
+            playersCount,
+            chatMessages: [] // Clear chat messages when returning to waiting room
         }
     });
 }
 
 /**
- * Handle chat message directly without full re-render
+ * Handle chat message
  * @param {Object} data - Message data
  */
 function handleChatMessage(data) {
