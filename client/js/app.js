@@ -13,6 +13,52 @@ import LoginScreen from './components/LoginScreen.js';
 import WaitingRoom from './components/WaitingRoom.js';
 import Game from './components/Game.js';
 
+// Performance monitoring
+let lastFrameTime = 0;
+let frames = 0;
+let fps = 0;
+
+// Create FPS counter element
+const fpsCounter = document.createElement('div');
+fpsCounter.id = 'fps-counter';
+fpsCounter.style.position = 'fixed';
+fpsCounter.style.top = '10px';
+fpsCounter.style.right = '10px';
+fpsCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+fpsCounter.style.color = 'white';
+fpsCounter.style.padding = '5px 10px';
+fpsCounter.style.borderRadius = '5px';
+fpsCounter.style.fontSize = '14px';
+fpsCounter.style.zIndex = '9999';
+document.body.appendChild(fpsCounter);
+
+// Function to update FPS counter
+function updateFPS(timestamp) {
+    frames++;
+
+    if (timestamp - lastFrameTime >= 1000) {
+        fps = frames;
+        frames = 0;
+        lastFrameTime = timestamp;
+
+        fpsCounter.textContent = `FPS: ${fps}`;
+
+        // Update color based on performance
+        if (fps >= 55) {
+            fpsCounter.style.color = '#2ecc71'; // Green for good
+        } else if (fps >= 30) {
+            fpsCounter.style.color = '#f39c12'; // Orange for ok
+        } else {
+            fpsCounter.style.color = '#e74c3c'; // Red for poor
+        }
+    }
+
+    requestAnimationFrame(updateFPS);
+}
+
+// Start FPS monitoring
+requestAnimationFrame(updateFPS);
+
 // Initialize application state
 setState({
     screen: 'login',

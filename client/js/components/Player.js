@@ -68,9 +68,9 @@ function Player(props) {
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
             position: 'absolute',
-            zIndex: 20, // Higher than other elements to appear on top
-            transition: 'top 0.1s, left 0.1s', // Smooth movement
-            filter: isCurrentPlayer ? 'drop-shadow(0 0 4px gold)' : 'none', // Highlight current player
+            zIndex: 20,
+            transition: 'top 0.1s, left 0.1s',
+            filter: isCurrentPlayer ? 'drop-shadow(0 0 4px gold)' : 'none',
         },
         'data-player-id': id,
         'aria-label': isCurrentPlayer ? 'You' : nickname
@@ -93,10 +93,7 @@ function Player(props) {
             }
         }, [
             isCurrentPlayer ? 'You' : nickname
-        ]),
-
-        // Stats display for current player
-        playerStats
+        ])
     ]);
 }
 

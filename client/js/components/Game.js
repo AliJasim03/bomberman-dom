@@ -611,6 +611,47 @@ setTimeout(() => {
     if (chatContainer) {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
+
+    const images = document.querySelectorAll('div[style*="background-image"]');
+    images.forEach(img => {
+        const url = img.style.backgroundImage.match(/url\(['"]?([^'"]*)['"]?\)/)?.[1];
+        if (url) {
+            console.log(`Loading image: ${url}`);
+            // Create a temporary Image to test loading
+            const testImg = new Image();
+            testImg.onerror = () => console.error(`Failed to load: ${url}`);
+            testImg.src = url;
+        }
+    });
+
+
+    // Add this to your Game.js component inside the setTimeout function
+    console.log("Checking asset loading...");
+
+// Debug image loading
+    const debugImageLoading = (url) => {
+        const img = new Image();
+        img.onload = () => console.log(`✅ Successfully loaded: ${url}`);
+        img.onerror = () => console.error(`❌ Failed to load: ${url}`);
+        img.src = url;
+    };
+
+// Check important game assets
+    [
+        '/assets/images/bombs/bomb.png',
+        '/assets/images/bombs/explosion.png',
+        '/assets/images/map/floor.png',
+        '/assets/images/map/wall.png',
+        '/assets/images/map/block.png',
+        '/assets/images/players/player1.png',
+        '/assets/images/powerups/bomb_powerup.png',
+        '/assets/images/powerups/flame_powerup.png',
+        '/assets/images/powerups/speed_powerup.png',
+        '/assets/audio/bomb_place.wav',
+        '/assets/audio/explosion.wav'
+    ].forEach(debugImageLoading);
+
+
 }, 500);
 
 export default Game;

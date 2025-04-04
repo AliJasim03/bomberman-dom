@@ -95,19 +95,26 @@ function Map(props) {
     });
 
     // Create bomb elements
-    const bombElements = bombs.map(bomb =>
-        createElement('div', {
+    const bombElements = bombs.map(bomb => {
+        console.log(`Creating bomb at x:${bomb.x}, y:${bomb.y}`); // Add this debug line
+        return createElement('div', {
             class: 'bomb',
             key: `bomb-${bomb.id}`,
             style: {
+                position: 'absolute',
                 top: `${bomb.y * cellSize}px`,
                 left: `${bomb.x * cellSize}px`,
-                backgroundImage: 'url("/assets/images/bombs/bomb.png")',
                 width: `${cellSize}px`,
-                height: `${cellSize}px`
+                height: `${cellSize}px`,
+                backgroundImage: 'url("/assets/images/bombs/bomb.png")',
+                backgroundSize: 'contain',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                zIndex: 15, // Above floor, below players
+                animation: 'pulse 0.5s infinite alternate'
             }
-        })
-    );
+        });
+    });
 
     // Create power-up elements
     const powerUpElements = powerUps.map(powerUp =>

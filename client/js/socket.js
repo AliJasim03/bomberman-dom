@@ -380,7 +380,38 @@ function handleBombPlaced(data) {
             bombs: [...state.game.bombs, bomb]
         }
     });
+
+    // Add a flash effect to the game map
+    const mapEl = document.querySelector('.game-map');
+    if (mapEl) {
+        mapEl.style.boxShadow = '0 0 20px rgba(231, 76, 60, 0.7)';
+        setTimeout(() => {
+            mapEl.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
+        }, 200);
+    }
 }
+
+// Apply screen shake effect for bomb explosions
+const applyScreenShake = () => {
+    const gameMap = document.querySelector('.game-map-container');
+    if (gameMap) {
+        gameMap.style.transition = 'transform 0.1s';
+        gameMap.style.transform = 'translate(4px, 4px)';
+
+        setTimeout(() => {
+            gameMap.style.transform = 'translate(-4px, -4px)';
+
+            setTimeout(() => {
+                gameMap.style.transform = 'translate(2px, 2px)';
+
+                setTimeout(() => {
+                    gameMap.style.transform = 'translate(0, 0)';
+                    gameMap.style.transition = '';
+                }, 50);
+            }, 50);
+        }, 50);
+    }
+};
 
 /**
  * Handle bomb exploded
@@ -407,6 +438,7 @@ function handleBombExploded(data) {
             explosions: [...state.game.explosions, explosion]
         }
     });
+    applyScreenShake();
 
     // Remove explosion after animation completes (1 second)
     setTimeout(() => {
