@@ -5,32 +5,14 @@
 import { createElement } from '../../../src/index.js';
 
 /**
- * Get player color based on player ID
+ * Get player sprite based on player ID
  * @param {string} playerId - Player ID
- * @param {boolean} isCurrentPlayer - Whether this is the current player
- * @returns {string} CSS color value
+ * @returns {string} Path to player sprite image
  */
-function getPlayerColor(playerId, isCurrentPlayer) {
-    if (isCurrentPlayer) {
-        return '#4CAF50'; // Green for current player
-    }
-
-    // Generate a deterministic color based on player ID
-    const hash = playerId.split('').reduce((acc, char) => {
-        return char.charCodeAt(0) + ((acc << 5) - acc);
-    }, 0);
-
-    const colors = [
-        '#F44336', // Red
-        '#2196F3', // Blue
-        '#FF9800', // Orange
-        '#9C27B0', // Purple
-        '#00BCD4', // Cyan
-        '#FFEB3B'  // Yellow
-    ];
-
-    // Use the hash to select a color from the array
-    return colors[Math.abs(hash) % colors.length];
+function getPlayerSprite(playerId) {
+    // Extract numeric part of playerId to determine sprite
+    const playerNum = parseInt(playerId.replace(/\D/g, '')) % 6 + 1;
+    return `/assets/images/players/player${playerNum}.png`;
 }
 
 /**
@@ -54,28 +36,67 @@ function Player(props) {
     const pixelX = position.x * cellSize;
     const pixelY = position.y * cellSize;
 
-    // Get player color
-    const playerColor = getPlayerColor(id, isCurrentPlayer);
+    // Get player sprite path
+    const playerSprite = getPlayerSprite(id);
+
+    // Render player stats if this is the current player
+    const playerStats = isCurrentPlayer ?
+        createElement('div', { class: 'player-stats' }, [
+            createElement('div', { class: 'player-lives' }, [
+                `Lives: ${lives}`
+            ]),
+            createElement('div', { class: 'player-bombs' }, [
+                `Bombs: ${player.bombs || 1}`
+            ]),
+            createElement('div', { class: 'player-range' }, [
+                `Range: ${player.flames || 1}`
+            ]),
+            createElement('div', { class: 'player-speed' }, [
+                `Speed: ${player.speed || 1}`
+            ])
+        ]) : null;
 
     return createElement('div', {
         class: `player ${isCurrentPlayer ? 'current-player' : ''}`,
-        key: `player-${id}`,
         style: {
             top: `${pixelY}px`,
             left: `${pixelX}px`,
-            backgroundColor: playerColor,
-            zIndex: 10 // Ensure players are above other elements
+            width: `${cellSize}px`,
+            height: `${cellSize}px`,
+            backgroundImage: `url("${playerSprite}")`,
+            backgroundSize: 'contain',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            position: 'absolute',
+            zIndex: 20, // Higher than other elements to appear on top
+            transition: 'top 0.1s, left 0.1s', // Smooth movement
+            filter: isCurrentPlayer ? 'drop-shadow(0 0 4px gold)' : 'none', // Highlight current player
         },
         'data-player-id': id,
         'aria-label': isCurrentPlayer ? 'You' : nickname
     }, [
-        // Player avatar
-        createElement('div', { class: 'player-avatar' }),
-
-        // Player name label
-        createElement('div', { class: 'player-label' }, [
+        // Player name tag
+        createElement('div', {
+            class: 'player-name',
+            style: {
+                position: 'absolute',
+                bottom: '-20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                color: 'white',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                fontWeight: isCurrentPlayer ? 'bold' : 'normal'
+            }
+        }, [
             isCurrentPlayer ? 'You' : nickname
-        ])
+        ]),
+
+        // Stats display for current player
+        playerStats
     ]);
 }
 

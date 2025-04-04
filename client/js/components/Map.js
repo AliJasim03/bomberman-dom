@@ -1,6 +1,6 @@
 /**
  * Map Component
- * Renders the game map with players, bombs, powerups and explosions
+ * Renders the game map with walls, blocks, players, bombs, power-ups and explosions
  */
 import { createElement } from '../../../src/index.js';
 import Player from './Player.js';
@@ -28,12 +28,12 @@ function Map(props) {
 
     // Map cell types
     const EMPTY = 0;
-    const BLOCK = 1;
-    const WALL = 2;
+    const BLOCK = 1;  // Destructible
+    const WALL = 2;   // Indestructible
 
     // Calculate cell size based on map dimensions
     // We want to ensure the map fits well on most screens
-    const cellSize = 32; // 32px per cell
+    const cellSize = 40; // 40px per cell
 
     // Create map grid cells
     const mapCells = [];
@@ -43,16 +43,20 @@ function Map(props) {
         for (let x = 0; x < map.width; x++) {
             const cellValue = map.grid[y][x];
             let cellClass = '';
+            let backgroundImage = '';
 
             switch (cellValue) {
                 case EMPTY:
                     cellClass = 'empty';
+                    backgroundImage = 'url("/assets/images/map/floor.png")';
                     break;
                 case BLOCK:
                     cellClass = 'block';
+                    backgroundImage = 'url("/assets/images/map/block.png")';
                     break;
                 case WALL:
                     cellClass = 'wall';
+                    backgroundImage = 'url("/assets/images/map/wall.png")';
                     break;
             }
 
@@ -63,6 +67,9 @@ function Map(props) {
                 style: {
                     top: `${y * cellSize}px`,
                     left: `${x * cellSize}px`,
+                    backgroundImage,
+                    width: `${cellSize}px`,
+                    height: `${cellSize}px`
                 }
             }));
         }
@@ -78,7 +85,10 @@ function Map(props) {
                 key: `explosion-${explosion.id}-${cell.x}-${cell.y}`,
                 style: {
                     top: `${cell.y * cellSize}px`,
-                    left: `${cell.x * cellSize}px`
+                    left: `${cell.x * cellSize}px`,
+                    backgroundImage: 'url("/assets/images/bombs/explosion.png")',
+                    width: `${cellSize}px`,
+                    height: `${cellSize}px`
                 }
             }));
         });
@@ -91,7 +101,10 @@ function Map(props) {
             key: `bomb-${bomb.id}`,
             style: {
                 top: `${bomb.y * cellSize}px`,
-                left: `${bomb.x * cellSize}px`
+                left: `${bomb.x * cellSize}px`,
+                backgroundImage: 'url("/assets/images/bombs/bomb.png")',
+                width: `${cellSize}px`,
+                height: `${cellSize}px`
             }
         })
     );
@@ -117,11 +130,26 @@ function Map(props) {
         })
     );
 
+    // Helper function to create sound effects
+    const createSoundElement = (src) => {
+        return createElement('audio', {
+            src,
+            preload: 'auto',
+            controls: false,
+            style: { display: 'none' }
+        });
+    };
+
     return createElement('div', {
         class: 'game-map',
         style: {
             width: `${map.width * cellSize}px`,
-            height: `${map.height * cellSize}px`
+            height: `${map.height * cellSize}px`,
+            position: 'relative',
+            overflow: 'hidden',
+            backgroundColor: '#3c5063', // Dark blue-gray background
+            boxShadow: '0 0 20px rgba(0, 0, 0, 0.5)',
+            borderRadius: '8px'
         }
     }, [
         // Map cells (walls and blocks)
@@ -137,7 +165,13 @@ function Map(props) {
         ...powerUpElements,
 
         // Players
-        ...playerElements
+        ...playerElements,
+
+        // Audio elements
+        createSoundElement('/assets/audio/bomb_place.mp3'),
+        createSoundElement('/assets/audio/explosion.mp3'),
+        createSoundElement('/assets/audio/powerup.mp3'),
+        createSoundElement('/assets/audio/player_hit.mp3')
     ]);
 }
 
