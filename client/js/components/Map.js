@@ -137,7 +137,7 @@ function Map(props) {
         })
     );
 
-    // Helper function to create sound effects
+    // Helper function to create sound elements
     const createSoundElement = (src) => {
         return createElement('audio', {
             src,
@@ -174,11 +174,11 @@ function Map(props) {
         // Players
         ...playerElements,
 
-        // Audio elements
-        createSoundElement('/assets/audio/bomb_place.wav'),
-        createSoundElement('/assets/audio/explosion.wav'),
-        createSoundElement('/assets/audio/powerup.wav'),
-        createSoundElement('/assets/audio/player_hit.wav')
+        // Audio elements - using the new audio routes
+        createSoundElement('/audio/bomb_place.wav'),
+        createSoundElement('/audio/explosion.wav'),
+        createSoundElement('/audio/powerup.wav'),
+        createSoundElement('/audio/player_hit.wav')
     ]);
 }
 

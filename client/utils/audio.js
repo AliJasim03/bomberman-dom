@@ -1,272 +1,130 @@
 /**
  * Audio Utilities
- * Handles game sound effects and music
+ * Handles loading and playing game sounds
  */
-import { SOUND_EFFECTS } from './constants.js';
 
 // Cache for audio objects
 const audioCache = {};
 
-// Audio settings
-let masterVolume = 0.7;
-let sfxVolume = 0.8;
-let musicVolume = 0.5;
-let audioEnabled = true;
-
-/**
- * Initialize audio system
- */
-export function initAudio() {
-    // Preload all sound effects
-    Object.values(SOUND_EFFECTS).forEach(src => {
-        if (src) {
-            preloadAudio(src);
-        }
-    });
-
-    // Try to start background music
-    playBackgroundMusic();
-
-    // Add volume control listener
-    document.addEventListener('keydown', (e) => {
-        // + key increases volume
-        if (e.key === '+' || e.key === '=') {
-            setMasterVolume(masterVolume + 0.1);
-        }
-        // - key decreases volume
-        if (e.key === '-' || e.key === '_') {
-            setMasterVolume(masterVolume - 0.1);
-        }
-        // M key toggles audio
-        if (e.key === 'm' || e.key === 'M') {
-            toggleAudio();
-        }
-    });
-}
-
 /**
  * Preload an audio file
- * @param {string} src - Audio file path
+ * @param {string} src - Path to audio file
+ * @returns {Promise} Promise that resolves when audio is loaded
  */
-function preloadAudio(src) {
-    if (!audioCache[src]) {
-        const audio = new Audio(src);
-        audio.preload = 'auto';
-        audioCache[src] = audio;
-    }
+export function preloadAudio(src) {
+    return new Promise((resolve, reject) => {
+        console.log(`Attempting to preload audio: ${src}`);
+
+        // Check if already in cache
+        if (audioCache[src]) {
+            console.log(`Audio already in cache: ${src}`);
+            resolve(audioCache[src]);
+            return;
+        }
+
+        // Create new audio element
+        const audio = new Audio();
+
+        // Set up load handler
+        audio.addEventListener('canplaythrough', () => {
+            console.log(`✅ Successfully loaded audio: ${src}`);
+            audioCache[src] = audio;
+            resolve(audio);
+        }, { once: true });
+
+        // Set up error handler
+        audio.addEventListener('error', (e) => {
+            console.error(`❌ Failed to load audio: ${src}`, e);
+
+            // Try alternate path if original fails (using /audio/ route)
+            if (!src.startsWith('/audio/')) {
+                const alternateSrc = '/audio/' + src.split('/').pop();
+                console.log(`Trying alternate path: ${alternateSrc}`);
+
+                const alternateAudio = new Audio();
+                alternateAudio.addEventListener('canplaythrough', () => {
+                    console.log(`✅ Successfully loaded audio from alternate path: ${alternateSrc}`);
+                    audioCache[src] = alternateAudio; // Store with original key
+                    resolve(alternateAudio);
+                }, { once: true });
+
+                alternateAudio.addEventListener('error', (e2) => {
+                    console.error(`❌ Also failed to load audio from alternate path: ${alternateSrc}`, e2);
+                    reject(e2);
+                });
+
+                alternateAudio.src = alternateSrc;
+                alternateAudio.load();
+            } else {
+                reject(e);
+            }
+        });
+
+        // Start loading
+        audio.src = src;
+        audio.load();
+    });
 }
 
 /**
  * Play a sound effect
- * @param {string} type - Sound effect type (use constants from SOUND_EFFECTS)
+ * @param {string} src - Path to audio file
+ * @param {number} volume - Volume level (0.0 to 1.0)
  */
-export function playSoundEffect(type) {
-    if (!audioEnabled) return;
+export function playSound(src, volume = 0.5) {
+    if (audioCache[src]) {
+        // Clone the audio to allow overlapping sounds
+        const sound = audioCache[src].cloneNode();
+        sound.volume = volume;
+        sound.play().catch(e => console.error(`Error playing sound ${src}:`, e));
+    } else {
+        console.warn(`Audio not preloaded: ${src}`);
 
-    const src = SOUND_EFFECTS[type];
-    if (!src) return;
+        // Try to load and play immediately
+        preloadAudio(src)
+            .then(audio => {
+                const sound = audio.cloneNode();
+                sound.volume = volume;
+                sound.play().catch(e => console.error(`Error playing sound ${src}:`, e));
+            })
+            .catch(e => console.error(`Failed to load audio for immediate play: ${src}`, e));
+    }
+}
 
-    // Create a new audio instance each time for sound effects
-    // This allows multiple overlapping instances
-    const audio = new Audio(src);
-    audio.volume = sfxVolume * masterVolume;
+/**
+ * Preload all game sounds
+ */
+export function preloadAllGameSounds() {
+    const soundFiles = [
+        '/assets/audio/bomb_place.wav',
+        '/assets/audio/explosion.wav',
+        '/assets/audio/powerup.wav',
+        '/assets/audio/player_hit.wav',
+        '/assets/audio/game_start.wav',
+        '/assets/audio/game_over.wav',
+        '/assets/audio/background.wav',
+        '/assets/audio/countdown.mp3'
+    ];
 
-    // Play the sound
-    audio.play().catch(error => {
-        console.error(`Error playing sound ${type}:`, error);
+    // Also try alternate paths
+    const alternateSoundFiles = soundFiles.map(path => '/audio/' + path.split('/').pop());
+
+    // Preload all sounds
+    const allSoundFiles = [...soundFiles, ...alternateSoundFiles];
+
+    console.log('Starting audio preload for all game sounds...');
+
+    // Load all sounds but don't wait for all to complete
+    allSoundFiles.forEach(src => {
+        preloadAudio(src).catch(e => {
+            // Just log errors, don't stop the process
+            console.error(`Could not preload ${src}:`, e);
+        });
     });
 }
 
-/**
- * Play background music
- */
-export function playBackgroundMusic() {
-    if (!audioEnabled) return;
-
-    const musicSrc = SOUND_EFFECTS.BACKGROUND;
-    if (!musicSrc) return;
-
-    const bgMusic = document.getElementById('background-music');
-    if (bgMusic) {
-        bgMusic.volume = musicVolume * masterVolume;
-        bgMusic.play().catch(error => {
-            console.warn('Could not autoplay background music. User interaction required.', error);
-        });
-    }
-}
-
-/**
- * Stop background music
- */
-export function stopBackgroundMusic() {
-    const bgMusic = document.getElementById('background-music');
-    if (bgMusic) {
-        bgMusic.pause();
-        bgMusic.currentTime = 0;
-    }
-}
-
-/**
- * Set master volume level
- * @param {number} level - Volume level (0.0 to 1.0)
- */
-export function setMasterVolume(level) {
-    // Clamp volume between 0 and 1
-    masterVolume = Math.max(0, Math.min(1, level));
-
-    // Update background music volume
-    const bgMusic = document.getElementById('background-music');
-    if (bgMusic) {
-        bgMusic.volume = musicVolume * masterVolume;
-    }
-
-    // Display volume indicator
-    showVolumeIndicator();
-}
-
-/**
- * Set SFX volume level
- * @param {number} level - Volume level (0.0 to 1.0)
- */
-export function setSfxVolume(level) {
-    sfxVolume = Math.max(0, Math.min(1, level));
-}
-
-/**
- * Set music volume level
- * @param {number} level - Volume level (0.0 to 1.0)
- */
-export function setMusicVolume(level) {
-    musicVolume = Math.max(0, Math.min(1, level));
-
-    // Update background music volume
-    const bgMusic = document.getElementById('background-music');
-    if (bgMusic) {
-        bgMusic.volume = musicVolume * masterVolume;
-    }
-}
-
-/**
- * Toggle audio on/off
- */
-export function toggleAudio() {
-    audioEnabled = !audioEnabled;
-
-    if (audioEnabled) {
-        // Resume background music
-        playBackgroundMusic();
-        showAudioIndicator('Audio Enabled');
-    } else {
-        // Stop all audio
-        stopBackgroundMusic();
-        showAudioIndicator('Audio Disabled');
-    }
-}
-
-/**
- * Show volume level indicator
- */
-function showVolumeIndicator() {
-    // Create or get volume indicator
-    let indicator = document.getElementById('volume-indicator');
-
-    if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.id = 'volume-indicator';
-        indicator.style.position = 'fixed';
-        indicator.style.top = '20px';
-        indicator.style.right = '20px';
-        indicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        indicator.style.color = 'white';
-        indicator.style.padding = '10px';
-        indicator.style.borderRadius = '5px';
-        indicator.style.zIndex = '1000';
-        indicator.style.transition = 'opacity 0.5s';
-        document.body.appendChild(indicator);
-    }
-
-    // Show volume level
-    indicator.textContent = `Volume: ${Math.round(masterVolume * 100)}%`;
-    indicator.style.opacity = '1';
-
-    // Hide after delay
-    setTimeout(() => {
-        indicator.style.opacity = '0';
-    }, 2000);
-}
-
-/**
- * Show audio status indicator
- * @param {string} message - Status message to display
- */
-function showAudioIndicator(message) {
-    // Create or get audio indicator
-    let indicator = document.getElementById('audio-indicator');
-
-    if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.id = 'audio-indicator';
-        indicator.style.position = 'fixed';
-        indicator.style.top = '60px';
-        indicator.style.right = '20px';
-        indicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        indicator.style.color = 'white';
-        indicator.style.padding = '10px';
-        indicator.style.borderRadius = '5px';
-        indicator.style.zIndex = '1000';
-        indicator.style.transition = 'opacity 0.5s';
-        document.body.appendChild(indicator);
-    }
-
-    // Show audio status
-    indicator.textContent = message;
-    indicator.style.opacity = '1';
-
-    // Hide after delay
-    setTimeout(() => {
-        indicator.style.opacity = '0';
-    }, 2000);
-}
-
-/**
- * Play game sound based on event
- * @param {string} event - Game event (place-bomb, explosion, etc.)
- */
-export function playGameSound(event) {
-    switch (event) {
-        case 'place-bomb':
-            playSoundEffect('BOMB_PLACE');
-            break;
-        case 'explosion':
-            playSoundEffect('EXPLOSION');
-            break;
-        case 'powerup':
-            playSoundEffect('POWERUP');
-            break;
-        case 'player-hit':
-            playSoundEffect('PLAYER_HIT');
-            break;
-        case 'game-start':
-            playSoundEffect('GAME_START');
-            break;
-        case 'game-over':
-            playSoundEffect('GAME_OVER');
-            break;
-        case 'countdown':
-            playSoundEffect('COUNTDOWN');
-            break;
-    }
-}
-
-// Export a default object with all functions
 export default {
-    initAudio,
-    playSoundEffect,
-    playBackgroundMusic,
-    stopBackgroundMusic,
-    setMasterVolume,
-    setSfxVolume,
-    setMusicVolume,
-    toggleAudio,
-    playGameSound
+    preloadAudio,
+    playSound,
+    preloadAllGameSounds
 };

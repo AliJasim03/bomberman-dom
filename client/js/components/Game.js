@@ -597,7 +597,7 @@ function Game() {
     ]);
 }
 
-// Add code to handle sounds
+// Add code to handle sounds and asset loading
 // This function will be called after the component is rendered
 setTimeout(() => {
     // Set background music volume
@@ -647,10 +647,9 @@ setTimeout(() => {
         '/assets/images/powerups/bomb_powerup.png',
         '/assets/images/powerups/flame_powerup.png',
         '/assets/images/powerups/speed_powerup.png',
-        '/assets/audio/bomb_place.wav',
-        '/assets/audio/explosion.wav'
+        '/audio/bomb_place.wav',
+        '/audio/explosion.wav'
     ].forEach(debugImageLoading);
-
 
 }, 500);
 

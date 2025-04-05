@@ -12,6 +12,10 @@ import { initSocket } from './socket.js';
 import LoginScreen from './components/LoginScreen.js';
 import WaitingRoom from './components/WaitingRoom.js';
 import Game from './components/Game.js';
+import { preloadAllGameSounds, playSound } from '../utils/audio.js';
+
+// Preload all game sounds immediately
+preloadAllGameSounds();
 
 // Performance monitoring
 let lastFrameTime = 0;
@@ -203,6 +207,8 @@ document.addEventListener('keydown', (e) => {
             break;
         case ' ': // Space bar
             socket.send(JSON.stringify({ type: 'PLACE_BOMB' }));
+            // Play bomb place sound
+            playSound('/audio/bomb_place.wav', 0.5);
             break;
     }
 });

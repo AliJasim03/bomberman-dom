@@ -10,6 +10,16 @@ const GameManager = require('./gameManager');
 
 // Create Express app
 const app = express();
+
+// Add a specific route for audio files
+app.get('/audio/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, '../client/assets/audio', filename);
+    console.log('Audio request:', filename, 'Path:', filePath);
+    res.sendFile(filePath);
+});
+
+// Serve static files
 app.use(express.static(path.join(__dirname, '../client')));
 
 //serve mini framework
@@ -125,7 +135,7 @@ setInterval(() => {
 }, 1000);
 
 // Start the server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Changed port to 3001
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
