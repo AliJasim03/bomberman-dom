@@ -88,7 +88,10 @@ function Map(props) {
                     left: `${cell.x * cellSize}px`,
                     backgroundImage: 'url("/assets/images/bombs/explosion.png")',
                     width: `${cellSize}px`,
-                    height: `${cellSize}px`
+                    height: `${cellSize}px`,
+                    position: 'absolute',
+                    zIndex: 16,
+                    animation: 'explosionFade 0.5s forwards'
                 }
             }));
         });
@@ -96,7 +99,11 @@ function Map(props) {
 
     // Create bomb elements
     const bombElements = bombs.map(bomb => {
-        console.log(`Creating bomb at x:${bomb.x}, y:${bomb.y}`); // Add this debug line
+        const timeLeft = 2000 - (Date.now() - bomb.placedAt);
+        const isAboutToExplode = timeLeft < 500;
+
+        console.log(`Creating bomb at x:${bomb.x}, y:${bomb.y}, time left: ${timeLeft}ms`);
+
         return createElement('div', {
             class: 'bomb',
             key: `bomb-${bomb.id}`,
@@ -110,8 +117,10 @@ function Map(props) {
                 backgroundSize: 'contain',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',
-                zIndex: 15, // Above floor, below players
-                animation: 'pulse 0.5s infinite alternate'
+                zIndex: 15,
+                animation: isAboutToExplode
+                    ? 'bombCountdown 0.15s infinite'
+                    : 'bombPulse 1s infinite'
             }
         });
     });

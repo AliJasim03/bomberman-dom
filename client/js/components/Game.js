@@ -625,18 +625,21 @@ setTimeout(() => {
     });
 
 
-    // Add this to your Game.js component inside the setTimeout function
+// Add this to your Game.js component inside the setTimeout function
     console.log("Checking asset loading...");
 
 // Debug image loading
     const debugImageLoading = (url) => {
-        const img = new Image();
-        img.onload = () => console.log(`✅ Successfully loaded: ${url}`);
-        img.onerror = () => console.error(`❌ Failed to load: ${url}`);
-        img.src = url;
+        // Only try to load images, not audio
+        if (url.endsWith('.png') || url.endsWith('.jpg') || url.endsWith('.svg')) {
+            const img = new Image();
+            img.onload = () => console.log(`✅ Successfully loaded: ${url}`);
+            img.onerror = () => console.error(`❌ Failed to load: ${url}`);
+            img.src = url;
+        }
     };
 
-// Check important game assets
+// Check important game assets - IMAGES ONLY
     [
         '/assets/images/bombs/bomb.png',
         '/assets/images/bombs/explosion.png',
@@ -647,9 +650,11 @@ setTimeout(() => {
         '/assets/images/powerups/bomb_powerup.png',
         '/assets/images/powerups/flame_powerup.png',
         '/assets/images/powerups/speed_powerup.png',
-        '/audio/bomb_place.wav',
-        '/audio/explosion.wav'
+        '/assets/images/ui/heart.png',
+        '/assets/images/ui/heart-empty.png'
     ].forEach(debugImageLoading);
+
+
 
 }, 500);
 

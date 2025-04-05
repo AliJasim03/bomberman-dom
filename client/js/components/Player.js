@@ -24,7 +24,7 @@ function getPlayerSprite(playerId) {
  * @returns {Object} Virtual DOM element
  */
 function Player(props) {
-    const { player, isCurrentPlayer, cellSize } = props;
+    const { player, isCurrentPlayer, cellSize, direction } = props;
     const { id, position, lives, nickname } = player;
 
     // Skip rendering if player is dead
@@ -39,25 +39,11 @@ function Player(props) {
     // Get player sprite path
     const playerSprite = getPlayerSprite(id);
 
-    // Render player stats if this is the current player
-    const playerStats = isCurrentPlayer ?
-        createElement('div', { class: 'player-stats' }, [
-            createElement('div', { class: 'player-lives' }, [
-                `Lives: ${lives}`
-            ]),
-            createElement('div', { class: 'player-bombs' }, [
-                `Bombs: ${player.bombs || 1}`
-            ]),
-            createElement('div', { class: 'player-range' }, [
-                `Range: ${player.flames || 1}`
-            ]),
-            createElement('div', { class: 'player-speed' }, [
-                `Speed: ${player.speed || 1}`
-            ])
-        ]) : null;
+    // Add direction class for movement animation
+    const directionClass = direction ? `moving-${direction}` : '';
 
     return createElement('div', {
-        class: `player ${isCurrentPlayer ? 'current-player' : ''}`,
+        class: `player ${isCurrentPlayer ? 'current-player' : ''} ${directionClass}`,
         style: {
             top: `${pixelY}px`,
             left: `${pixelX}px`,
@@ -69,7 +55,6 @@ function Player(props) {
             backgroundRepeat: 'no-repeat',
             position: 'absolute',
             zIndex: 20,
-            transition: 'top 0.1s, left 0.1s',
             filter: isCurrentPlayer ? 'drop-shadow(0 0 4px gold)' : 'none',
         },
         'data-player-id': id,

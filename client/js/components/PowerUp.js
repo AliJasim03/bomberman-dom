@@ -50,7 +50,7 @@ function getPowerUpDescription(type) {
  * @returns {Object} Virtual DOM element
  */
 function PowerUp(props) {
-    const { type, x, y, cellSize } = props;
+    const { type, x, y, cellSize, isCollecting } = props;
 
     // Calculate pixel position
     const pixelX = x * cellSize;
@@ -58,6 +58,11 @@ function PowerUp(props) {
 
     // Get power-up image
     const powerUpImage = getPowerUpImage(type);
+
+    // Animation class based on collection state
+    const animationStyle = isCollecting
+        ? 'powerupCollected 0.5s forwards'
+        : 'powerupFloat 2s infinite ease-in-out, powerupGlow 1.5s infinite ease-in-out';
 
     return createElement('div', {
         class: `power-up ${type}`,
@@ -68,17 +73,16 @@ function PowerUp(props) {
             width: `${cellSize}px`,
             height: `${cellSize}px`,
             backgroundImage: `url("${powerUpImage}")`,
-            backgroundSize: '70%', // Slightly smaller than the cell
+            backgroundSize: '80%',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            animation: 'pulse 1s infinite alternate', // Pulsing animation
-            zIndex: 10, // Above map cells, below players
-            filter: 'drop-shadow(0 0 3px rgba(255, 255, 255, 0.7))' // Glowing effect
+            zIndex: 10,
+            animation: animationStyle
         },
         'data-type': type,
+        'data-powerup-id': props.id,
         'aria-label': `${type} power-up`,
-        title: getPowerUpDescription(type) // Tooltip on hover
+        title: getPowerUpDescription(type)
     });
 }
-
 export default PowerUp;

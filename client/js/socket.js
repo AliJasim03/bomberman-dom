@@ -4,6 +4,7 @@
  */
 import { getState, setState } from '../../src/index.js';
 import { attemptReconnect } from './app.js';
+import {playSound} from "../utils/audio.js";
 
 /**
  * Initialize WebSocket connection
@@ -440,6 +441,8 @@ function handleBombExploded(data) {
     });
     applyScreenShake();
 
+    playSound('/audio/explosion.wav', 0.6);
+
     // Remove explosion after animation completes (1 second)
     setTimeout(() => {
         const currentState = getState();
@@ -686,3 +689,20 @@ function handleChatMessage(data) {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 }
+
+const handlePlayerMove = (playerId, direction) => {
+    // Update player position
+    const playerElement = document.querySelector(`[data-player-id="${playerId}"]`);
+    if (playerElement) {
+        // Remove existing direction classes
+        playerElement.classList.remove('moving-up', 'moving-down', 'moving-left', 'moving-right');
+
+        // Add new direction class
+        playerElement.classList.add(`moving-${direction}`);
+
+        // Remove class after animation finishes
+        setTimeout(() => {
+            playerElement.classList.remove(`moving-${direction}`);
+        }, 200);
+    }
+};
