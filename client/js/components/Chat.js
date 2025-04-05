@@ -1,6 +1,7 @@
 /**
  * Chat Component
  * Displays chat messages and allows sending new messages
+ * Optimized to use CSS classes instead of inline styles
  */
 import { createElement } from '../../../src/index.js';
 
@@ -100,5 +101,8 @@ const afterRender = () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 };
+
+// Export with afterRender hook
+Chat.afterRender = afterRender;
 
 export default Chat;

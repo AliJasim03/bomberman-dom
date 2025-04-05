@@ -47,35 +47,14 @@ function Player(props) {
         style: {
             top: `${pixelY}px`,
             left: `${pixelX}px`,
-            width: `${cellSize}px`,
-            height: `${cellSize}px`,
-            backgroundImage: `url("${playerSprite}")`,
-            backgroundSize: 'contain',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            position: 'absolute',
-            zIndex: 20,
-            filter: isCurrentPlayer ? 'drop-shadow(0 0 4px gold)' : 'none',
+            backgroundImage: `url("${playerSprite}")`
         },
         'data-player-id': id,
         'aria-label': isCurrentPlayer ? 'You' : nickname
     }, [
         // Player name tag
         createElement('div', {
-            class: 'player-name',
-            style: {
-                position: 'absolute',
-                bottom: '-20px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                color: 'white',
-                padding: '2px 6px',
-                borderRadius: '3px',
-                fontSize: '12px',
-                whiteSpace: 'nowrap',
-                fontWeight: isCurrentPlayer ? 'bold' : 'normal'
-            }
+            class: `player-name ${isCurrentPlayer ? 'current-player' : ''}`,
         }, [
             isCurrentPlayer ? 'You' : nickname
         ])

@@ -80,6 +80,8 @@
     position: relative;
     overflow: hidden;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    contain: content; /* Changed from strict to content to allow proper sizing */
+    min-height: 500px; /* Add min-height to ensure visibility */
 }
 
 .game-side-panel {
@@ -98,6 +100,8 @@
 
 .players-list {
     list-style: none;
+    padding: 0;
+    margin: 0;
 }
 
 .players-list .player-item {
@@ -134,118 +138,147 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+.game-chat-messages, .chat-messages {
+    contain: content;
+    overscroll-behavior: contain;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
 /* Game map */
 .game-map {
     position: relative;
     background-color: #2c3e50;
     border: 4px solid #2c3e50;
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    will-change: transform;
+    transform: translateZ(0);
+    /* Make sure map size is properly set */
+    display: block;
+    margin: 0 auto;
 }
 
+/* Map cells */
 .map-cell {
     position: absolute;
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     transition: opacity 0.3s;
+    background-size: cover;
+    background-position: center;
 }
 
 .map-cell.empty {
     background-color: #3c5063;
+    background-image: url('/assets/images/map/floor.png');
 }
 
 .map-cell.block {
     background-color: #7f8c8d;
+    background-image: url('/assets/images/map/block.png');
     box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
 }
 
 .map-cell.wall {
     background-color: #2c3e50;
+    background-image: url('/assets/images/map/wall.png');
     box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
 }
 
 /* Game elements */
 .bomb {
     position: absolute;
-    width: 32px;
-    height: 32px;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="black"/><rect x="15" y="3" width="2" height="6" fill="black"/><rect x="14" y="2" width="4" height="2" fill="black"/><circle cx="19" cy="13" r="2" fill="white"/></svg>');
-    animation: pulse 0.5s infinite alternate;
+    width: 40px;
+    height: 40px;
+    background-image: url('/assets/images/bombs/bomb.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    will-change: transform, opacity;
+    transform: translateZ(0);
     z-index: 5;
+    animation: bombPulse 1s infinite;
+}
+
+.bomb.about-to-explode {
+    animation: bombCountdown 0.15s infinite !important;
 }
 
 .explosion {
     position: absolute;
-    width: 32px;
-    height: 32px;
-    background-color: rgba(231, 76, 60, 0.7);
-    border-radius: 4px;
-    animation: fadeIn 0.2s forwards;
+    width: 40px;
+    height: 40px;
+    background-image: url('/assets/images/bombs/explosion.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    will-change: transform, opacity;
+    transform: translateZ(0);
     z-index: 6;
+    animation: explosionFade 0.5s forwards;
 }
 
 .power-up {
     position: absolute;
-    width: 32px;
-    height: 32px;
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    animation: pulse 1s infinite alternate;
+    width: 40px;
+    height: 40px;
+    background-size: 80%;
+    background-position: center;
+    background-repeat: no-repeat;
+    will-change: transform, opacity;
+    transform: translateZ(0);
     z-index: 4;
+    animation: powerupFloat 2s infinite ease-in-out, powerupGlow 1.5s infinite ease-in-out;
 }
 
 .power-up.bomb {
     background-color: rgba(231, 76, 60, 0.3);
+    background-image: url('/assets/images/powerups/bomb_powerup.png');
 }
 
 .power-up.flame {
     background-color: rgba(243, 156, 18, 0.3);
+    background-image: url('/assets/images/powerups/flame_powerup.png');
 }
 
 .power-up.speed {
     background-color: rgba(46, 204, 113, 0.3);
-}
-
-.power-up-icon {
-    font-size: 1.5rem;
+    background-image: url('/assets/images/powerups/speed_powerup.png');
 }
 
 .player {
     position: absolute;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: transform 0.1s, left 0.1s, top 0.1s;
+    width: 40px;
+    height: 40px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    will-change: transform;
+    transform: translateZ(0);
     z-index: 10;
+    transition: transform 0.12s linear;
 }
 
 .player.current-player {
-    box-shadow: 0 0 8px rgba(231, 76, 60, 0.8);
+    filter: drop-shadow(0 0 4px gold);
 }
 
-.player-avatar {
-    width: 70%;
-    height: 70%;
-    border-radius: 50%;
-    background-color: rgba(0, 0, 0, 0.3);
-}
-
-.player-label {
+.player-name {
     position: absolute;
-    top: -20px;
+    bottom: -20px;
     left: 50%;
     transform: translateX(-50%);
     background-color: rgba(0, 0, 0, 0.7);
+    color: white;
     padding: 2px 6px;
     border-radius: 3px;
-    font-size: 0.8rem;
+    font-size: 12px;
     white-space: nowrap;
-    pointer-events: none;
+}
+
+.player-name.current-player {
+    font-weight: bold;
 }
 
 /* Game overlays */
@@ -299,6 +332,84 @@
     color: #bdc3c7;
 }
 
+/* Optimized player movement classes that use transform */
+.player.moving-up {
+    transform: translateY(-3px) translateZ(0);
+}
+
+.player.moving-down {
+    transform: translateY(3px) translateZ(0);
+}
+
+.player.moving-left {
+    transform: translateX(-3px) scaleX(-1) translateZ(0);
+}
+
+.player.moving-right {
+    transform: translateX(3px) translateZ(0);
+}
+
+/* Screen shake effect */
+.screen-shake {
+    animation: shake 0.1s cubic-bezier(.36,.07,.19,.97) both;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+/* Optimized keyframes that use transform */
+@keyframes shake {
+    10%, 90% { transform: translate3d(-2px, 0, 0); }
+    20%, 80% { transform: translate3d(3px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+    40%, 60% { transform: translate3d(3px, 0, 0); }
+}
+
+@keyframes bombPulse {
+    0% { transform: scale(0.8) translateZ(0); }
+    50% { transform: scale(1.1) translateZ(0); }
+    100% { transform: scale(0.8) translateZ(0); }
+}
+
+@keyframes bombCountdown {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(1.5); }
+    100% { filter: brightness(1); }
+}
+
+@keyframes explosionFade {
+    0% { opacity: 0; transform: scale(0.5) translateZ(0); }
+    20% { opacity: 1; transform: scale(1.2) translateZ(0); }
+    100% { opacity: 0.8; transform: scale(1) translateZ(0); }
+}
+
+@keyframes powerupFloat {
+    0% { transform: translateY(0) rotate(0deg) translateZ(0); }
+    50% { transform: translateY(-5px) rotate(5deg) translateZ(0); }
+    100% { transform: translateY(0) rotate(0deg) translateZ(0); }
+}
+
+@keyframes powerupGlow {
+    0% { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5)); }
+    50% { filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8)); }
+    100% { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5)); }
+}
+
+@keyframes powerupCollected {
+    0% { transform: scale(1) translateZ(0); opacity: 1; }
+    100% { transform: scale(2) translateZ(0); opacity: 0; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
 /* Responsive adjustments */
 @media (max-width: 1200px) {
     .game-content {
@@ -350,193 +461,96 @@
     }
 }
 
-/* Animation for the bomb explosion effect */
-@keyframes explode {
-    0% {
-        transform: scale(0.5);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(2);
-        opacity: 0;
-    }
+.player-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
-/* Basic grid-based map */
-.game-map {
-    display: grid;
-    grid-template-columns: repeat(15, 32px); /* Adjust based on map width */
-    grid-template-rows: repeat(13, 32px); /* Adjust based on map height */
-    gap: 0;
-    background-color: #3c5063;
-    border: 4px solid #2c3e50;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-.map-cell {
+.player-avatar {
     width: 32px;
     height: 32px;
-    box-sizing: border-box;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    border: 2px solid gold;
 }
 
-.map-cell.empty {
-    background-color: #3c5063;
+.player-name-display {
+    font-weight: bold;
 }
 
-.map-cell.block {
-    background-color: #7f8c8d;
-    box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
+/* Heart styling */
+.heart {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    margin: 0 2px;
 }
 
-.map-cell.wall {
-    background-color: #2c3e50;
-    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.8);
+/* Stat value colors */
+.bomb-value {
+    font-weight: bold;
+    color: #e74c3c;
 }
 
-/* Game content layout */
-.game-content {
+.flame-value {
+    font-weight: bold;
+    color: #f39c12;
+}
+
+.speed-value {
+    font-weight: bold;
+    color: #2ecc71;
+}
+
+/* Player list avatar */
+.player-list-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+}
+
+.player-info-item {
     display: flex;
-    gap: 20px;
-}
-
-.game-map-container {
-    flex: 3;
-    display: flex;
-    justify-content: center;
     align-items: center;
-    background-color: #34495e;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    gap: 0.75rem;
 }
 
+.player-list-name {
+    font-weight: 500;
+}
+
+/* Section titles */
+.section-title {
+    margin: 0 0 1rem 0;
+    font-size: 1.5rem;
+    color: #ecf0f1;
+}
+
+/* Game sidebar - full width sidebar in the Game component */
 .game-sidebar {
-    flex: 1;
+    flex: 1 1 300px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1.5rem;
 }
 
-.players-info, .game-chat {
-    background-color: #34495e;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+/* Chat message sender colors */
+.message-sender.self {
+    color: #3498db;
 }
 
-.game-chat {
-    flex: 1;
+.message-sender.other {
+    color: #e74c3c;
+}
+
+/* Lives container */
+.lives-container {
     display: flex;
-    flex-direction: column;
-}
-
-.game-chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    margin: 10px 0;
-    max-height: 300px;
-}
-
-.game-players-list {
-    list-style: none;
-    padding: 0;
-}
-
-.game-players-list .player-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 12px;
-    margin-bottom: 8px;
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-}
-
-.game-players-list .player-item.you {
-    border-left: 3px solid #e74c3c;
-}
-
-@keyframes bombPulse {
-    0% { transform: scale(0.8); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(0.8); }
-}
-
-@keyframes bombCountdown {
-    0% { opacity: 1; }
-    20% { opacity: 0.8; }
-    40% { opacity: 1; }
-    60% { opacity: 0.8; }
-    80% { opacity: 1; }
-    100% { opacity: 0.8; }
-}
-
-.player {
-    transition: transform 0.1s, left 0.12s, top 0.12s;
-}
-
-.player.moving-up {
-    transform: translateY(-3px);
-}
-
-.player.moving-down {
-    transform: translateY(3px);
-}
-
-.player.moving-left {
-    transform: translateX(-3px) scaleX(-1);
-}
-
-.player.moving-right {
-    transform: translateX(3px);
-}
-
-@keyframes powerupFloat {
-    0% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-5px) rotate(5deg); }
-    100% { transform: translateY(0) rotate(0deg); }
-}
-
-@keyframes powerupGlow {
-    0% { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5)); }
-    50% { filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8)); }
-    100% { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5)); }
-}
-
-@keyframes powerupCollected {
-    0% { transform: scale(1); opacity: 1; }
-    100% { transform: scale(2); opacity: 0; }
-}
-
-@keyframes powerupFloat {
-    0% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-5px) rotate(5deg); }
-    100% { transform: translateY(0) rotate(0deg); }
-}
-
-@keyframes powerupGlow {
-    0% { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5)); }
-    50% { filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8)); }
-    100% { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.5)); }
-}
-
-@keyframes powerupCollected {
-    0% { transform: scale(1); opacity: 1; }
-    100% { transform: scale(2); opacity: 0; }
-}
-
-@keyframes bombPulse {
-    0% { transform: scale(0.8); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(0.8); }
-}
-
-@keyframes bombCountdown {
-    0% { filter: brightness(1); }
-    50% { filter: brightness(1.5); }
-    100% { filter: brightness(1); }
-}
-@keyframes explosionFade {
-    0% { opacity: 0; transform: scale(0.5); }
-    20% { opacity: 1; transform: scale(1.2); }
-    100% { opacity: 0.8; transform: scale(1); }
 }

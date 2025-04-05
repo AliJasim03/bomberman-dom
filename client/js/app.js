@@ -14,13 +14,18 @@ import WaitingRoom from './components/WaitingRoom.js';
 import Game from './components/Game.js';
 import { preloadAllGameSounds, playSound } from '../utils/audio.js';
 
-// Preload all game sounds immediately
-preloadAllGameSounds();
+// Asset cache for faster image loading
+window.assetCache = {
+    images: {},
+    audio: {}
+};
 
-// Performance monitoring
+// Performance monitoring variables
 let lastFrameTime = 0;
+let lastUpdateTime = 0;
 let frames = 0;
 let fps = 0;
+const UPDATE_INTERVAL = 16.67; // Target ~60fps (1000ms / 60)
 
 // Create FPS counter element
 const fpsCounter = document.createElement('div');
@@ -36,10 +41,59 @@ fpsCounter.style.fontSize = '14px';
 fpsCounter.style.zIndex = '9999';
 document.body.appendChild(fpsCounter);
 
-// Function to update FPS counter
-function updateFPS(timestamp) {
-    frames++;
+// Preload all game sounds immediately
+preloadAllGameSounds();
 
+// Function to preload game assets
+function preloadGameAssets() {
+    console.log("Preloading game assets...");
+
+    // Preload images
+    const imageAssets = [
+        '/assets/images/bombs/bomb.png',
+        '/assets/images/bombs/explosion.png',
+        '/assets/images/map/floor.png',
+        '/assets/images/map/wall.png',
+        '/assets/images/map/block.png',
+        '/assets/images/players/player1.png',
+        '/assets/images/players/player2.png',
+        '/assets/images/players/player3.png',
+        '/assets/images/players/player4.png',
+        '/assets/images/players/player5.png',
+        '/assets/images/players/player6.png',
+        '/assets/images/powerups/bomb_powerup.png',
+        '/assets/images/powerups/flame_powerup.png',
+        '/assets/images/powerups/speed_powerup.png',
+        '/assets/images/ui/heart.png',
+        '/assets/images/ui/heart-empty.png'
+    ];
+
+    // Cache images
+    imageAssets.forEach(src => {
+        const img = new Image();
+        img.onload = () => console.log(`Loaded image: ${src}`);
+        img.onerror = () => {
+            console.error(`Failed to load image: ${src}`);
+            // Try alternate path if original fails
+            if (!src.includes('/assets/')) {
+                const alternateSrc = src.replace('/assets/', '/');
+                const altImg = new Image();
+                altImg.src = alternateSrc;
+                window.assetCache.images[src] = altImg;
+            }
+        };
+        img.src = src;
+        window.assetCache.images[src] = img;
+    });
+}
+
+// Optimized game loop function
+function gameLoop(timestamp) {
+    // Store reference to cancel if needed
+    window.animationFrameId = requestAnimationFrame(gameLoop);
+
+    // Calculate FPS
+    frames++;
     if (timestamp - lastFrameTime >= 1000) {
         fps = frames;
         frames = 0;
@@ -55,13 +109,98 @@ function updateFPS(timestamp) {
         } else {
             fpsCounter.style.color = '#e74c3c'; // Red for poor
         }
+
+        // Store FPS in state for other components
+        const state = getState();
+        if (state.performance) {
+            state.performance.fps = fps;
+        }
     }
 
-    requestAnimationFrame(updateFPS);
+    // Only update game animations at fixed intervals
+    if (timestamp - lastUpdateTime >= UPDATE_INTERVAL) {
+        lastUpdateTime = timestamp;
+
+        // If we're in game screen, update animations
+        const { screen } = getState();
+        if (screen === 'game') {
+            updateGameAnimations(timestamp);
+        }
+    }
 }
 
-// Start FPS monitoring
-requestAnimationFrame(updateFPS);
+// Function to update game animations without re-rendering
+function updateGameAnimations(timestamp) {
+    const { game } = getState();
+    if (!game) return;
+
+    const { bombs = [], explosions = [] } = game;
+
+    // Update bomb animations
+    bombs.forEach(bomb => {
+        const bombEl = document.querySelector(`[data-bomb-id="${bomb.id}"]`);
+        if (bombEl) {
+            const timeLeft = 2000 - (timestamp - bomb.placedAt);
+
+            // Change animation based on time left
+            if (timeLeft < 500 && !bombEl.classList.contains('about-to-explode')) {
+                bombEl.classList.add('about-to-explode');
+            }
+        }
+    });
+
+    // Update explosion animations - check for old explosions
+    explosions.forEach(explosion => {
+        const created = explosion.createdAt;
+        const age = timestamp - created;
+
+        // Remove explosion elements if they're old (over 1000ms)
+        if (age > 1000) {
+            const explosionElements = document.querySelectorAll(`[data-explosion-id="${explosion.id}"]`);
+            explosionElements.forEach(el => {
+                if (el && el.parentNode) {
+                    el.style.opacity = '0';
+                    setTimeout(() => {
+                        if (el.parentNode) el.parentNode.removeChild(el);
+                    }, 100);
+                }
+            });
+
+            // Update state to remove old explosions
+            const { game } = getState();
+            if (game && game.explosions) {
+                game.explosions = game.explosions.filter(e => e.id !== explosion.id);
+            }
+        }
+    });
+
+    // Update power-up animations
+    const powerUpElements = document.querySelectorAll('.power-up');
+    powerUpElements.forEach(el => {
+        // Apply subtle animation by manipulating the transform directly
+        const time = timestamp % 2000 / 2000;
+        const y = Math.sin(time * Math.PI * 2) * 5;
+        el.style.transform = `translateY(${y}px) translateZ(0)`;
+    });
+}
+
+// Function to clean up resources when changing screens
+function cleanupResources() {
+    // Cancel animation frame
+    if (window.animationFrameId) {
+        cancelAnimationFrame(window.animationFrameId);
+        window.animationFrameId = null;
+    }
+
+    // Stop any sounds
+    const audioElements = document.querySelectorAll('audio');
+    audioElements.forEach(audio => {
+        if (!audio.paused) {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    });
+}
 
 // Initialize application state
 setState({
@@ -178,12 +317,26 @@ function App(state) {
 // Create and mount the app
 const app = createApp(App);
 
-// Add keyboard event listeners for game controls
+// Optimized keyboard input handling with key state tracking
+const keyState = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    space: false
+};
+
+// Track key state changes
 document.addEventListener('keydown', (e) => {
     const { screen } = getState();
 
     // Only handle keyboard input in game screen
     if (screen !== 'game') return;
+
+    // Prevent default for game controls to avoid scrolling
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'a', 's', 'd'].includes(e.key)) {
+        e.preventDefault();
+    }
 
     const { socket } = window;
     if (!socket) return;
@@ -191,24 +344,72 @@ document.addEventListener('keydown', (e) => {
     switch (e.key) {
         case 'ArrowUp':
         case 'w':
-            socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'up' }));
+            if (!keyState.up) {
+                keyState.up = true;
+                socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'up' }));
+            }
             break;
         case 'ArrowDown':
         case 's':
-            socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'down' }));
+            if (!keyState.down) {
+                keyState.down = true;
+                socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'down' }));
+            }
             break;
         case 'ArrowLeft':
         case 'a':
-            socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'left' }));
+            if (!keyState.left) {
+                keyState.left = true;
+                socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'left' }));
+            }
             break;
         case 'ArrowRight':
         case 'd':
-            socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'right' }));
+            if (!keyState.right) {
+                keyState.right = true;
+                socket.send(JSON.stringify({ type: 'PLAYER_MOVE', direction: 'right' }));
+            }
             break;
         case ' ': // Space bar
-            socket.send(JSON.stringify({ type: 'PLACE_BOMB' }));
-            // Play bomb place sound
-            playSound('/audio/bomb_place.wav', 0.5);
+            if (!keyState.space) {
+                keyState.space = true;
+                socket.send(JSON.stringify({ type: 'PLACE_BOMB' }));
+                // Play bomb place sound
+                playSound('/audio/bomb_place.wav', 0.5);
+            }
             break;
     }
+});
+
+document.addEventListener('keyup', (e) => {
+    switch (e.key) {
+        case 'ArrowUp':
+        case 'w':
+            keyState.up = false;
+            break;
+        case 'ArrowDown':
+        case 's':
+            keyState.down = false;
+            break;
+        case 'ArrowLeft':
+        case 'a':
+            keyState.left = false;
+            break;
+        case 'ArrowRight':
+        case 'd':
+            keyState.right = false;
+            break;
+        case ' ': // Space bar
+            keyState.space = false;
+            break;
+    }
+});
+
+// Preload assets and start the game loop
+document.addEventListener('DOMContentLoaded', () => {
+    // Preload assets
+    preloadGameAssets();
+
+    // Start the game loop
+    window.animationFrameId = requestAnimationFrame(gameLoop);
 });

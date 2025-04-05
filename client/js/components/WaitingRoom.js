@@ -1,6 +1,7 @@
 /**
  * Waiting Room Component
  * Shows waiting players and countdown until game starts
+ * Optimized to use CSS classes instead of inline styles
  */
 import { createElement, getState } from '../../../src/index.js';
 

@@ -1,26 +1,9 @@
 /**
  * PowerUp Component
  * Renders a power-up on the game map
+ * Optimized to use CSS classes instead of inline styles
  */
 import { createElement } from '../../../src/index.js';
-
-/**
- * Get power-up image path based on type
- * @param {string} type - Power-up type ('bomb', 'flame', 'speed')
- * @returns {string} Path to power-up image
- */
-function getPowerUpImage(type) {
-    switch (type) {
-        case 'bomb':
-            return '/assets/images/powerups/bomb_powerup.png';
-        case 'flame':
-            return '/assets/images/powerups/flame_powerup.png';
-        case 'speed':
-            return '/assets/images/powerups/speed_powerup.png';
-        default:
-            return '/assets/images/powerups/bomb_powerup.png'; // Default fallback
-    }
-}
 
 /**
  * Get the description of a power-up
@@ -50,39 +33,28 @@ function getPowerUpDescription(type) {
  * @returns {Object} Virtual DOM element
  */
 function PowerUp(props) {
-    const { type, x, y, cellSize, isCollecting } = props;
+    const { type, x, y, cellSize, isCollecting, id } = props;
 
     // Calculate pixel position
     const pixelX = x * cellSize;
     const pixelY = y * cellSize;
 
-    // Get power-up image
-    const powerUpImage = getPowerUpImage(type);
-
     // Animation class based on collection state
-    const animationStyle = isCollecting
-        ? 'powerupCollected 0.5s forwards'
-        : 'powerupFloat 2s infinite ease-in-out, powerupGlow 1.5s infinite ease-in-out';
+    const animationClass = isCollecting ? 'collecting' : '';
 
     return createElement('div', {
-        class: `power-up ${type}`,
+        class: `power-up ${type} ${animationClass}`,
         style: {
-            position: 'absolute',
             top: `${pixelY}px`,
-            left: `${pixelX}px`,
-            width: `${cellSize}px`,
-            height: `${cellSize}px`,
-            backgroundImage: `url("${powerUpImage}")`,
-            backgroundSize: '80%',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            zIndex: 10,
-            animation: animationStyle
+            left: `${pixelX}px`
         },
         'data-type': type,
-        'data-powerup-id': props.id,
+        'data-powerup-id': id,
+        'data-cell-x': x,
+        'data-cell-y': y,
         'aria-label': `${type} power-up`,
         title: getPowerUpDescription(type)
     });
 }
+
 export default PowerUp;

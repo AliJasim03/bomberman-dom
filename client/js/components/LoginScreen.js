@@ -1,6 +1,7 @@
 /**
  * Login Screen Component
  * Allows the user to enter a nickname and join the game
+ * Optimized to use CSS classes instead of inline styles
  */
 import { createElement, getState, setState } from '../../../src/index.js';
 
@@ -60,17 +61,14 @@ function LoginScreen() {
         }
     };
 
-    // Render a message if reconnecting
-    const reconnectingMessage = reconnecting ?
-        createElement('div', {class: 'reconnecting-message'}, [
-            'Attempting to reconnect with your previous session...'
-        ]) : null;
-
     return createElement('div', {class: 'login-container'}, [
         createElement('div', {class: 'login-card'}, [
             createElement('h1', {class: 'game-title'}, ['BombermanDOM']),
 
-            reconnectingMessage,
+            // Conditionally render reconnecting message
+            reconnecting && createElement('div', {class: 'reconnecting-message'}, [
+                'Attempting to reconnect with your previous session...'
+            ]),
 
             createElement('form', {
                 class: 'login-form',

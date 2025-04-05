@@ -2,9 +2,13 @@
  * WebSocket client for Bomberman DOM
  * Handles all communication with the server
  */
-import { getState, setState } from '../../src/index.js';
-import { attemptReconnect } from './app.js';
+import {getState, setState} from '../../src/index.js';
+import {attemptReconnect} from './app.js';
 import {playSound} from "../utils/audio.js";
+
+// Batch processing for chat messages
+let pendingMessages = [];
+let chatUpdateScheduled = false;
 
 /**
  * Initialize WebSocket connection
@@ -62,7 +66,7 @@ export function initSocket() {
  * @param {Object} data - Message data
  */
 function handleMessage(data) {
-    const { type } = data;
+    const {type} = data;
 
     switch (type) {
         case 'JOIN_SUCCESS':
@@ -159,7 +163,7 @@ function handleMessage(data) {
  * @param {Object} data - Message data
  */
 function handleJoinSuccess(data) {
-    const { id, playersCount, players } = data;
+    const {id, playersCount, players} = data;
     const state = getState();
 
     // Save session to localStorage for reconnection
@@ -190,7 +194,7 @@ function handleJoinSuccess(data) {
  * @param {Object} data - Message data
  */
 function handleError(data) {
-    const { message } = data;
+    const {message} = data;
 
     // Show error message
     alert(`Error: ${message}`);
@@ -201,7 +205,7 @@ function handleError(data) {
  * @param {Object} data - Message data
  */
 function handlePlayerJoined(data) {
-    const { player, playersCount } = data;
+    const {player, playersCount} = data;
     const state = getState();
 
     // Add player to waiting room
@@ -219,7 +223,7 @@ function handlePlayerJoined(data) {
  * @param {Object} data - Message data
  */
 function handlePlayerLeft(data) {
-    const { playerId, playersCount } = data;
+    const {playerId, playersCount} = data;
     const state = getState();
 
     // Remove player from waiting room
@@ -237,7 +241,7 @@ function handlePlayerLeft(data) {
  * @param {Object} data - Message data
  */
 function handleWaitingPeriod(data) {
-    const { seconds } = data;
+    const {seconds} = data;
     const state = getState();
 
     // Update waiting room state
@@ -254,7 +258,7 @@ function handleWaitingPeriod(data) {
  * @param {Object} data - Message data
  */
 function handleGameCountdown(data) {
-    const { seconds } = data;
+    const {seconds} = data;
     const state = getState();
 
     console.log(`Countdown started: ${seconds} seconds`);
@@ -279,7 +283,7 @@ function handleGameCountdown(data) {
  * @param {Object} data - Message data
  */
 function handleCountdownUpdate(data) {
-    const { seconds } = data;
+    const {seconds} = data;
     const state = getState();
 
     // Update state without re-render
@@ -316,7 +320,7 @@ function handleTimerCanceled() {
  * @param {Object} data - Message data
  */
 function handleGameStarted(data) {
-    const { gameId, map, players, yourId } = data;
+    const {gameId, map, players, yourId} = data;
     const state = getState();
 
     // Update session to include game info
@@ -351,7 +355,7 @@ function handleGameStarted(data) {
  * @param {Object} data - Message data
  */
 function handleGameStateUpdate(data) {
-    const { state: gameState } = data;
+    const {state: gameState} = data;
     const state = getState();
 
     // Update game state
@@ -371,7 +375,7 @@ function handleGameStateUpdate(data) {
  * @param {Object} data - Message data
  */
 function handleBombPlaced(data) {
-    const { bomb } = data;
+    const {bomb} = data;
     const state = getState();
 
     // Add bomb to game state
@@ -392,34 +396,31 @@ function handleBombPlaced(data) {
     }
 }
 
-// Apply screen shake effect for bomb explosions
-const applyScreenShake = () => {
+function applyScreenShake() {
     const gameMap = document.querySelector('.game-map-container');
     if (gameMap) {
-        gameMap.style.transition = 'transform 0.1s';
-        gameMap.style.transform = 'translate(4px, 4px)';
+        // Remove existing shake class to restart animation
+        gameMap.classList.remove('screen-shake');
 
+        // Force browser to acknowledge the change
+        void gameMap.offsetWidth;
+
+        // Add shake class to trigger animation
+        gameMap.classList.add('screen-shake');
+
+        // Remove class after animation
         setTimeout(() => {
-            gameMap.style.transform = 'translate(-4px, -4px)';
-
-            setTimeout(() => {
-                gameMap.style.transform = 'translate(2px, 2px)';
-
-                setTimeout(() => {
-                    gameMap.style.transform = 'translate(0, 0)';
-                    gameMap.style.transition = '';
-                }, 50);
-            }, 50);
-        }, 50);
+            gameMap.classList.remove('screen-shake');
+        }, 500);
     }
-};
+}
 
 /**
  * Handle bomb exploded
  * @param {Object} data - Message data
  */
 function handleBombExploded(data) {
-    const { bombId, explosionCells } = data;
+    const {bombId, explosionCells} = data;
     const state = getState();
 
     // Remove bomb from game state
@@ -462,7 +463,7 @@ function handleBombExploded(data) {
  * @param {Object} data - Message data
  */
 function handleBlockDestroyed(data) {
-    const { position } = data;
+    const {position} = data;
     const state = getState();
 
     // Update map to remove block
@@ -488,7 +489,7 @@ function handleBlockDestroyed(data) {
  * @param {Object} data - Message data
  */
 function handlePowerUpSpawned(data) {
-    const { powerUp } = data;
+    const {powerUp} = data;
     const state = getState();
 
     // Add power-up to game state
@@ -505,7 +506,7 @@ function handlePowerUpSpawned(data) {
  * @param {Object} data - Message data
  */
 function handlePowerUpCollected(data) {
-    const { powerUpId } = data;
+    const {powerUpId} = data;
     const state = getState();
 
     // Remove power-up from game state
@@ -522,13 +523,13 @@ function handlePowerUpCollected(data) {
  * @param {Object} data - Message data
  */
 function handlePlayerHit(data) {
-    const { playerId, livesLeft } = data;
+    const {playerId, livesLeft} = data;
     const state = getState();
 
     // Update player lives
     const players = state.game.players.map(player =>
         player.id === playerId
-            ? { ...player, lives: livesLeft }
+            ? {...player, lives: livesLeft}
             : player
     );
 
@@ -545,13 +546,13 @@ function handlePlayerHit(data) {
  * @param {Object} data - Message data
  */
 function handlePlayerEliminated(data) {
-    const { playerId } = data;
+    const {playerId} = data;
     const state = getState();
 
     // Update player status
     const players = state.game.players.map(player =>
         player.id === playerId
-            ? { ...player, lives: 0, eliminated: true }
+            ? {...player, lives: 0, eliminated: true}
             : player
     );
 
@@ -568,13 +569,13 @@ function handlePlayerEliminated(data) {
  * @param {Object} data - Message data
  */
 function handlePlayerDisconnected(data) {
-    const { playerId } = data;
+    const {playerId} = data;
     const state = getState();
 
     // Update player status
     const players = state.game.players.map(player =>
         player.id === playerId
-            ? { ...player, disconnected: true }
+            ? {...player, disconnected: true}
             : player
     );
 
@@ -591,7 +592,7 @@ function handlePlayerDisconnected(data) {
  * @param {Object} data - Message data
  */
 function handleGameOver(data) {
-    const { winner, draw } = data;
+    const {winner, draw} = data;
     const state = getState();
 
     // Update game state
@@ -610,7 +611,7 @@ function handleGameOver(data) {
  * @param {Object} data - Message data
  */
 function handleReturnToWaitingRoom(data) {
-    const { playersCount, players } = data;
+    const {playersCount, players} = data;
     const state = getState();
 
     // Update session in localStorage
@@ -636,58 +637,103 @@ function handleReturnToWaitingRoom(data) {
  * @param {Object} data - Message data
  */
 function handleChatMessage(data) {
-    const { senderId, sender, message, timestamp } = data;
+    const {senderId, sender, message, timestamp} = data;
     const state = getState();
     const currentUserId = state.player.id;
 
-    // Create chat message element
-    const messageEl = document.createElement('div');
-    messageEl.className = `chat-message ${senderId === currentUserId ? 'own' : ''}`;
-
-    // Message header
-    const headerEl = document.createElement('div');
-    headerEl.className = 'message-header';
-
-    const senderEl = document.createElement('span');
-    senderEl.className = 'message-sender';
-    senderEl.textContent = senderId === currentUserId ? 'You' : sender;
-
-    const timeEl = document.createElement('span');
-    timeEl.className = 'message-time';
-    timeEl.textContent = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    headerEl.appendChild(senderEl);
-    headerEl.appendChild(timeEl);
-
-    // Message content
-    const contentEl = document.createElement('div');
-    contentEl.className = 'message-content';
-    contentEl.textContent = message;
-
-    // Assemble message
-    messageEl.appendChild(headerEl);
-    messageEl.appendChild(contentEl);
-
-    // Add to appropriate chat container
-    let chatContainer;
+    // Update state without triggering re-render
     if (state.screen === 'waiting') {
-        chatContainer = document.getElementById('chat-messages');
-
-        // Also update state (but don't trigger re-render)
         const newMessages = [...(state.waitingRoom.chatMessages || []), data];
         state.waitingRoom.chatMessages = newMessages.slice(-50);
     } else if (state.screen === 'game') {
-        chatContainer = document.getElementById('game-chat-messages');
-
-        // Also update state (but don't trigger re-render)
         const newMessages = [...(state.game.chatMessages || []), data];
         state.game.chatMessages = newMessages.slice(-50);
     }
 
-    if (chatContainer) {
-        chatContainer.appendChild(messageEl);
+    // Add to pending messages queue
+    pendingMessages.push(data);
+
+    // If update not already scheduled, schedule one
+    if (!chatUpdateScheduled) {
+        chatUpdateScheduled = true;
+        requestAnimationFrame(() => {
+            updateChatDOM();
+            chatUpdateScheduled = false;
+        });
+    }
+}
+
+/**
+ * Update chat DOM efficiently with all pending messages
+ * Add this to your socket.js file
+ */
+function updateChatDOM() {
+    if (pendingMessages.length === 0) return;
+
+    const { screen, player } = getState();
+    const currentUserId = player.id;
+
+    // Get the right chat container
+    let chatContainer;
+    if (screen === 'waiting') {
+        chatContainer = document.getElementById('chat-messages');
+    } else if (screen === 'game') {
+        chatContainer = document.getElementById('game-chat-messages');
+    }
+
+    if (!chatContainer) return;
+
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+
+    // Add all pending messages
+    pendingMessages.forEach(msg => {
+        const { senderId, sender, message: text, timestamp } = msg;
+
+        const messageEl = document.createElement('div');
+        messageEl.className = `chat-message ${senderId === currentUserId ? 'own' : ''}`;
+
+        // Message header
+        const headerEl = document.createElement('div');
+        headerEl.className = 'message-header';
+
+        const senderEl = document.createElement('span');
+        senderEl.className = 'message-sender';
+        senderEl.textContent = senderId === currentUserId ? 'You' : sender;
+
+        const timeEl = document.createElement('span');
+        timeEl.className = 'message-time';
+        timeEl.textContent = new Date(timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        headerEl.appendChild(senderEl);
+        headerEl.appendChild(timeEl);
+
+        // Message content
+        const contentEl = document.createElement('div');
+        contentEl.className = 'message-content';
+        contentEl.textContent = text;
+
+        // Assemble message
+        messageEl.appendChild(headerEl);
+        messageEl.appendChild(contentEl);
+
+        fragment.appendChild(messageEl);
+    });
+
+    // Append all messages at once
+    chatContainer.appendChild(fragment);
+
+    // Scroll to bottom if we were already at the bottom
+    const isAtBottom = chatContainer.scrollHeight - chatContainer.clientHeight <= chatContainer.scrollTop + 10;
+    if (isAtBottom) {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
+
+    // Clear pending messages
+    pendingMessages = [];
 }
 
 const handlePlayerMove = (playerId, direction) => {
