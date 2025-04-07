@@ -13,12 +13,17 @@ let _prevState = {};
  * Update the application state
  * @param {Object} newState - The new state to merge with the existing state
  */
-export function setState(newState) {
+export function setState(newState, triggerUpdate = true) {
+    // If window.shouldRerender is defined and false, override triggerUpdate
+    if (window.shouldRerender === false) {
+        triggerUpdate = false;
+    }
+
     _prevState = { ..._state };
     _state = { ..._state, ...newState };
 
-    // Compare and only trigger updates if state actually changed
-    if (JSON.stringify(_prevState) !== JSON.stringify(_state)) {
+    // Compare and only trigger updates if state changed and triggering is enabled
+    if (triggerUpdate && JSON.stringify(_prevState) !== JSON.stringify(_state)) {
         // Ensure _listeners exists and is an array before calling forEach
         if (_listeners && Array.isArray(_listeners)) {
             _listeners.forEach(listener => listener(_state, _prevState));
@@ -188,5 +193,41 @@ export function createApp(component, rootId = 'root') {
     };
 }
 
+
+// helper function to directly update DOM properties without re-rendering
+export function updateDOMDirectly(selector, updates) {
+    const element = document.querySelector(selector);
+    if (!element) return false;
+
+    Object.entries(updates).forEach(([key, value]) => {
+        if (key === 'style' && typeof value === 'object') {
+            // Update style properties
+            Object.entries(value).forEach(([prop, val]) => {
+                element.style[prop] = val;
+            });
+        } else if (key === 'classList' && Array.isArray(value)) {
+            // Handle class list operations: [action, className]
+            value.forEach(([action, className]) => {
+                if (action === 'add') element.classList.add(className);
+                else if (action === 'remove') element.classList.remove(className);
+                else if (action === 'toggle') element.classList.toggle(className);
+            });
+        } else if (key === 'attributes' && typeof value === 'object') {
+            // Set attributes
+            Object.entries(value).forEach(([attr, val]) => {
+                element.setAttribute(attr, val);
+            });
+        } else if (key === 'textContent') {
+            // Update text content
+            element.textContent = value;
+        } else if (key === 'innerHTML') {
+            // Update inner HTML
+            element.innerHTML = value;
+        }
+    });
+
+    return true;
+}
+
 // Export the Router class for routing functionality
-export { Router } from './router.js';
+export {Router} from './router.js';

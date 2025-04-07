@@ -151,6 +151,7 @@ function Map(props) {
         .map(player => {
             // Get player sprite based on ID
             const playerNum = parseInt(player.id.replace(/\D/g, '')) % 6 + 1;
+            const displayName = player.id === yourId ? 'You' : (player.nickname || `Player ${playerNum}`);
 
             return createElement('div', {
                 class: `player ${player.id === yourId ? 'current-player' : ''}`,
@@ -161,14 +162,12 @@ function Map(props) {
                     left: `${player.position.x * cellSize}px`,
                     backgroundImage: `url("/assets/images/players/player${playerNum}.png")`
                 },
-                'aria-label': player.id === yourId ? 'You' : player.nickname
+                'aria-label': displayName
             }, [
                 // Player name tag
                 createElement('div', {
                     class: `player-name ${player.id === yourId ? 'current-player' : ''}`,
-                }, [
-                    player.id === yourId ? 'You' : player.nickname
-                ])
+                }, [displayName])
             ]);
         });
 

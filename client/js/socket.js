@@ -67,6 +67,10 @@ export function initSocket() {
  */
 function handleMessage(data) {
     const {type} = data;
+    // Determine if this update should trigger re-render
+    const shouldRerender = shouldTriggerRerender(type, data);
+    // Set a global variable to control re-rendering
+    window.shouldRerender = shouldRerender;
 
     switch (type) {
         case 'JOIN_SUCCESS':
@@ -156,6 +160,9 @@ function handleMessage(data) {
         default:
             console.warn('Unknown message type:', type);
     }
+
+    // Reset re-render flag after handling message
+    window.shouldRerender = true;
 }
 
 /**
@@ -208,6 +215,8 @@ function handlePlayerJoined(data) {
     const {player, playersCount} = data;
     const state = getState();
 
+    console.log('Player joined:', player);
+
     // Add player to waiting room
     setState({
         waitingRoom: {
@@ -216,6 +225,41 @@ function handlePlayerJoined(data) {
             playersCount
         }
     });
+
+    // Create a direct DOM update to show the new player immediately
+    const playersList = document.querySelector('.player-list');
+    if (playersList && player) {
+        // Create a new player item element
+        const playerItem = document.createElement('li');
+        playerItem.className = 'player-item';
+        playerItem.style.animation = 'slideInUp 0.3s ease-out';
+
+        // Determine if this is the current user
+        const isCurrentUser = player.id === state.player.id;
+
+        // Create indicator
+        const indicator = document.createElement('span');
+        indicator.className = `player-indicator ${isCurrentUser ? 'you' : ''}`;
+        indicator.textContent = isCurrentUser ? 'You' : '';
+
+        // Create name element
+        const nameEl = document.createElement('span');
+        nameEl.className = 'player-name';
+        nameEl.textContent = player.nickname;
+
+        // Assemble player item
+        playerItem.appendChild(indicator);
+        playerItem.appendChild(nameEl);
+
+        // Add to list
+        playersList.appendChild(playerItem);
+    }
+
+    // Update player counter directly in DOM
+    const counterEl = document.querySelector('.counter');
+    if (counterEl) {
+        counterEl.textContent = playersCount.toString();
+    }
 }
 
 /**
@@ -226,6 +270,8 @@ function handlePlayerLeft(data) {
     const {playerId, playersCount} = data;
     const state = getState();
 
+    console.log('Player left:', playerId);
+
     // Remove player from waiting room
     setState({
         waitingRoom: {
@@ -234,8 +280,25 @@ function handlePlayerLeft(data) {
             playersCount
         }
     });
-}
 
+    // Direct DOM update to remove the player element
+    const playerItem = document.querySelector(`[data-player-id="${playerId}"]`);
+    if (playerItem) {
+        // Fade out animation
+        playerItem.style.opacity = '0';
+        setTimeout(() => {
+            if (playerItem.parentNode) {
+                playerItem.parentNode.removeChild(playerItem);
+            }
+        }, 300);
+    }
+
+    // Update player counter directly in DOM
+    const counterEl = document.querySelector('.counter');
+    if (counterEl) {
+        counterEl.textContent = playersCount.toString();
+    }
+}
 /**
  * Handle waiting period started
  * @param {Object} data - Message data
@@ -358,16 +421,60 @@ function handleGameStateUpdate(data) {
     const {state: gameState} = data;
     const state = getState();
 
-    // Update game state
-    setState({
-        game: {
-            ...state.game,
-            players: gameState.players,
-            bombs: gameState.bombs,
-            powerUps: gameState.powerUps,
-            explosions: gameState.explosions || state.game.explosions
-        }
-    });
+    // Check if only player positions changed - if so, update directly without re-render
+    const isOnlyPositionsChanged =
+        // Same number of players
+        gameState.players.length === state.game.players.length &&
+        // Same bombs, powerUps, explosions
+        gameState.bombs.length === state.game.bombs.length &&
+        gameState.powerUps.length === state.game.powerUps.length &&
+        gameState.explosions.length === state.game.explosions.length;
+
+    if (isOnlyPositionsChanged) {
+        // Just update positions directly using DOM manipulation
+        gameState.players.forEach(newPlayerData => {
+            const playerElement = document.querySelector(`[data-player-id="${newPlayerData.id}"]`);
+            if (playerElement) {
+                // Update position
+                const cellSize = 40; // Cell size in pixels
+                playerElement.style.top = `${newPlayerData.position.y * cellSize}px`;
+                playerElement.style.left = `${newPlayerData.position.x * cellSize}px`;
+            }
+        });
+
+        // Update state without triggering re-render
+        setState({
+            game: {
+                ...state.game,
+                players: gameState.players.map(newPlayerData => {
+                    // Preserve existing data like nickname that might not be in update
+                    const existingPlayer = state.game.players.find(p => p.id === newPlayerData.id);
+                    return { ...existingPlayer, ...newPlayerData };
+                })
+            }
+        }, false); // false = don't trigger re-render
+    } else {
+        // There are other changes - do a normal update
+        const updatedPlayers = gameState.players.map(newPlayerData => {
+            // Try to find the existing player to keep the nickname
+            const existingPlayer = state.game.players.find(p => p.id === newPlayerData.id);
+            if (existingPlayer && existingPlayer.nickname) {
+                return { ...newPlayerData, nickname: existingPlayer.nickname };
+            }
+            return newPlayerData;
+        });
+
+        // Update game state
+        setState({
+            game: {
+                ...state.game,
+                players: updatedPlayers,
+                bombs: gameState.bombs,
+                powerUps: gameState.powerUps,
+                explosions: gameState.explosions || state.game.explosions
+            }
+        });
+    }
 }
 
 /**
@@ -675,14 +782,18 @@ function updateChatDOM() {
 
     // Get the right chat container
     let chatContainer;
+    let containerId;
     if (screen === 'waiting') {
-        chatContainer = document.getElementById('chat-messages');
+        containerId = 'chat-messages';
+        chatContainer = document.getElementById(containerId);
     } else if (screen === 'game') {
-        chatContainer = document.getElementById('game-chat-messages');
+        containerId = 'game-chat-messages';
+        chatContainer = document.getElementById(containerId);
     }
 
     if (!chatContainer) return;
 
+    optimizeChatContainer(containerId);
     // Use DocumentFragment for better performance
     const fragment = document.createDocumentFragment();
 
@@ -736,19 +847,131 @@ function updateChatDOM() {
     pendingMessages = [];
 }
 
-const handlePlayerMove = (playerId, direction) => {
-    // Update player position
+function handlePlayerMove(playerId, direction) {
+    const state = getState();
+
+    // Find the player element in the DOM
     const playerElement = document.querySelector(`[data-player-id="${playerId}"]`);
-    if (playerElement) {
-        // Remove existing direction classes
-        playerElement.classList.remove('moving-up', 'moving-down', 'moving-left', 'moving-right');
 
-        // Add new direction class
-        playerElement.classList.add(`moving-${direction}`);
+    if (!playerElement) return;
 
-        // Remove class after animation finishes
-        setTimeout(() => {
+    // Current position
+    const currentPlayer = state.game.players.find(p => p.id === playerId);
+    if (!currentPlayer) return;
+
+    // Calculate new position directly
+    const cellSize = 40; // Cell size in pixels
+    const newTop = `${currentPlayer.position.y * cellSize}px`;
+    const newLeft = `${currentPlayer.position.x * cellSize}px`;
+
+    // Update position with direct DOM manipulation (no re-rendering)
+    playerElement.style.top = newTop;
+    playerElement.style.left = newLeft;
+
+    // Add movement animation class
+    playerElement.classList.remove('moving-up', 'moving-down', 'moving-left', 'moving-right');
+    playerElement.classList.add(`moving-${direction}`);
+
+    // Remove animation class after it completes
+    setTimeout(() => {
+        if (playerElement.parentNode) { // Check if element still exists
             playerElement.classList.remove(`moving-${direction}`);
-        }, 200);
+        }
+    }, 200); // Match animation duration
+}
+
+// Track if each container already has animation prevention
+const optimizedContainers = new Set();
+
+/**
+ * Optimize a chat container to prevent reflow animations on state updates
+ * @param {string} containerId - ID of the chat container element
+ */
+function optimizeChatContainer(containerId) {
+    // Only run once per container
+    if (optimizedContainers.has(containerId)) return;
+
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    console.log(`Optimizing chat container: ${containerId}`);
+
+    // Add a class to prevent animation
+    container.classList.add('optimize-animation');
+
+    // Create a MutationObserver to detect when the chat is re-rendered
+    const observer = new MutationObserver((mutations) => {
+        // Wait for initial render to complete
+        requestAnimationFrame(() => {
+            // If messages were added/removed, preserve scroll position
+            const isScrolledToBottom =
+                container.scrollTop + container.clientHeight >= container.scrollHeight - 20;
+
+            // Prevent animations on any re-rendered messages
+            const messages = container.querySelectorAll('.chat-message');
+            messages.forEach(msg => {
+                msg.style.animation = 'none';
+            });
+
+            // Restore scroll position if at bottom
+            if (isScrolledToBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+    });
+
+    // Observe changes to the container's children
+    observer.observe(container, { childList: true, subtree: true });
+
+    // Remember that we've optimized this container
+    optimizedContainers.add(containerId);
+}
+
+
+
+// Add this to socket.js - A more balanced optimization strategy
+
+/**
+ * Determine if a state update should trigger a re-render
+ * @param {string} type - The type of update
+ * @param {Object} data - The update data
+ * @returns {boolean} True if should re-render
+ */
+function shouldTriggerRerender(type, data) {
+    // Always re-render for these important events
+    const importantEvents = [
+        'PLAYER_JOINED',
+        'PLAYER_LEFT',
+        'GAME_COUNTDOWN_STARTED',
+        'GAME_STARTED',
+        'GAME_OVER',
+        'RETURNED_TO_WAITING_ROOM'
+    ];
+
+    if (importantEvents.includes(type)) {
+        return true;
     }
-};
+
+    // For game state updates, only re-render if something more than positions changed
+    if (type === 'GAME_STATE_UPDATE') {
+        const currentState = getState();
+
+        // Check if bombs, powerups, or explosions changed
+        if (!currentState.game) return true;
+
+        const bombsChanged = data.state.bombs.length !== currentState.game.bombs.length;
+        const powerUpsChanged = data.state.powerUps.length !== currentState.game.powerUps.length;
+        const explosionsChanged = data.state.explosions.length !== currentState.game.explosions.length;
+
+        // If any of these changed, re-render
+        if (bombsChanged || powerUpsChanged || explosionsChanged) {
+            return true;
+        }
+
+        // If only positions changed, don't re-render
+        return false;
+    }
+
+    // Default to re-rendering
+    return true;
+}

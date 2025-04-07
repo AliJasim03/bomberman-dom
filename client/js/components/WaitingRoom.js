@@ -78,7 +78,8 @@ function WaitingRoom() {
                 createElement('ul', { class: 'player-list' },
                     players.map(p => createElement('li', {
                         class: 'player-item',
-                        key: p.id
+                        key: p.id,
+                        'data-player-id': p.id
                     }, [
                         createElement('span', {
                             class: `player-indicator ${p.id === player.id ? 'you' : ''}`

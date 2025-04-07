@@ -275,9 +275,15 @@
     border-radius: 3px;
     font-size: 12px;
     white-space: nowrap;
+    z-index: 11;
+    pointer-events: none;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .player-name.current-player {
+    background-color: rgba(231, 76, 60, 0.7);
     font-weight: bold;
 }
 
@@ -553,4 +559,35 @@
 /* Lives container */
 .lives-container {
     display: flex;
+}
+
+.optimize-animation .chat-message {
+    animation: none !important;
+}
+/* Add these styles to your game.css file to fix animation issues */
+
+/* Prevent animations on optimized containers */
+.optimize-animation .chat-message {
+    animation: none !important;
+}
+
+/* Add this to the Game.js styling section */
+.players-list .player-item {
+    transition: all 0.3s ease;
+}
+
+.players-list .player-item.no-animation,
+.optimize-animation .player-item {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Fix for chat messages */
+.chat-message {
+    transition: opacity 0.3s;
+}
+
+.chat-message.optimize {
+    animation: none !important;
+    transition: none !important;
 }

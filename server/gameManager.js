@@ -806,6 +806,7 @@ class GameManager {
         const state = {
             players: game.players.map(p => ({
                 id: p.id,
+                nickname: p.nickname,
                 position: p.position,
                 lives: p.lives,
                 bombs: p.bombs,

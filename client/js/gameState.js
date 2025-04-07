@@ -134,13 +134,20 @@ export function addChatMessage(message) {
 export function updatePlayerPosition(playerId, position) {
     const { players } = getState().game;
 
+    // Update state
     const updatedPlayers = players.map(player =>
         player.id === playerId
             ? { ...player, position }
             : player
     );
 
-    updateGameState({ players: updatedPlayers });
+    // Update game state (but don't trigger full re-render)
+    setState({
+        game: {
+            ...getState().game,
+            players: updatedPlayers
+        }
+    }, false); // Add a 'false' parameter to setState to indicate no re-render needed
 }
 
 /**

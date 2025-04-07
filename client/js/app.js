@@ -12,7 +12,7 @@ import { initSocket } from './socket.js';
 import LoginScreen from './components/LoginScreen.js';
 import WaitingRoom from './components/WaitingRoom.js';
 import Game from './components/Game.js';
-import { preloadAllGameSounds, playSound } from '../utils/audio.js';
+import { initAudioSystem, preloadAllGameSounds, playSound } from '../utils/audio.js';
 
 // Asset cache for faster image loading
 window.assetCache = {
@@ -333,6 +333,22 @@ document.addEventListener('keydown', (e) => {
     // Only handle keyboard input in game screen
     if (screen !== 'game') return;
 
+    // Check if user is typing in a chat input
+    const isTypingInChat =
+        document.activeElement &&
+        (document.activeElement.id === 'game-chat-input' ||
+            document.activeElement.tagName === 'INPUT' ||
+            document.activeElement.tagName === 'TEXTAREA');
+
+    // If typing in chat, don't intercept WASD keys
+    if (isTypingInChat) {
+        // Only prevent defaults for arrow keys and space to avoid scrolling
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+            e.preventDefault();
+        }
+        return; // Exit early, don't process movement keys when typing
+    }
+
     // Prevent default for game controls to avoid scrolling
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'w', 'a', 's', 'd'].includes(e.key)) {
         e.preventDefault();
@@ -409,6 +425,9 @@ document.addEventListener('keyup', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     // Preload assets
     preloadGameAssets();
+
+    // Initialize audio system
+    initAudioSystem();
 
     // Start the game loop
     window.animationFrameId = requestAnimationFrame(gameLoop);
