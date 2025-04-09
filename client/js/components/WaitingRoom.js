@@ -18,7 +18,7 @@ function WaitingRoom() {
         ? `Game starting in: ${countdown}s`
         : playersCount >= 2
             ? 'Waiting for more players...'
-            : 'Waiting for at least one more player to join...';
+            : 'Waiting for players or press Start Game to play solo!';
 
     /**
      * Handle sending chat messages
@@ -46,6 +46,17 @@ function WaitingRoom() {
 
         // Clear input
         chatInput.value = '';
+    };
+
+    /**
+     * Handle start game button click for solo play
+     */
+    const handleStartSoloGame = () => {
+        if (window.socket && window.socket.readyState === WebSocket.OPEN) {
+            window.socket.send(JSON.stringify({
+                type: 'START_SOLO_GAME'
+            }));
+        }
     };
 
     // Scroll chat to bottom after render
@@ -87,6 +98,24 @@ function WaitingRoom() {
                         createElement('span', { class: 'player-name' }, [p.nickname])
                     ]))
                 ),
+
+                // Solo play button - NEW ADDITION
+                createElement('button', {
+                    class: 'solo-play-button',
+                    onClick: handleStartSoloGame,
+                    style: {
+                        display: 'block',
+                        margin: '20px auto',
+                        padding: '10px 20px',
+                        backgroundColor: '#e74c3c',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                    }
+                }, ['Start Solo Game']),
 
                 // Countdown display - with ID for direct updates
                 createElement('div', {

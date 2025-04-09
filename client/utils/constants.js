@@ -69,6 +69,8 @@ export const MESSAGE_TYPES = {
     CHAT: 'CHAT',
     PLAYER_MOVE: 'PLAYER_MOVE',
     PLACE_BOMB: 'PLACE_BOMB',
+    START_SOLO_GAME: 'START_SOLO_GAME', 
+
 
     // Server to client
     JOIN_SUCCESS: 'JOIN_SUCCESS',

@@ -29,6 +29,9 @@ function Game() {
         winner
     } = game;
 
+    // Add this line here - right after the destructuring
+    const isSoloMode = window.soloMode === true;
+
     // Find current player
     const currentPlayer = players.find(p => p.id === yourId) || {};
 
@@ -106,7 +109,9 @@ function Game() {
         ])
     ]) : null;
 
-    return createElement('div', {class: 'game-container'}, [
+    return createElement('div', {class: `game-container ${isSoloMode ? 'solo-mode' : ''}`}, [
+        // Add this line as the first element in the array
+        isSoloMode ? createElement('div', { class: 'solo-mode-indicator' }, ['SOLO MODE']) : null,
         // Game Header with player info
         createElement('header', {class: 'game-header'}, [
             // Game title
